@@ -4,7 +4,21 @@ Data Visualization as a stylized flora
 
 ![wildflowers](/media/wildflowers.png)
 
-# command line arguments:
+# What is Daisy Stats?
+
+This is a simple command line utility that will display spreadsheet data in the form of flowers instead of more traditional pie charts, bar charts, cheesecake charts etc. It was created as a distraction and is kind of fun to play with so it has been wrapped up and published.
+
+# Usage
+
+The simple way to use Daisy Stats is to expert a .csv file from a spreadsheet program and drag it to the program icon. This is works great on PC but not on mac. The workaround is to open a terminal window (click the magnifying glass in the upper right corner, type terminal and hit enter) then drag the mac executable (samples/daisystats_mac) into the termina window followed by the .csv file and then hitting enter on the keyboard.
+
+The program will run for a little while and generate quite a large image in the same folder as the .csv file. Fast performance is not a priority for this project. There are a variety of csv file samples to review in the samples folder along with pre-built executables.
+
+# Compiling
+
+This project is a single source file (daisystats.cpp) and has a dependency on Sean Barrets std header file implementations of image loading, image saving and truetype rendering (https://github.com/nothings/stb)
+
+# Command Line Arguments:
 
 daisystats [a=<num>] [s=<num>] [f=<shape>] [o=<condition>] [p=<csv file>] [r=<num>] [d=<csv file>] [b=<color>] [input.csv] output.png
 
@@ -57,3 +71,5 @@ If the only command line argument is a csv file a variety of guesses for command
  For colors in spreadsheets, see command line arguments
 
 Latest Version / More Info: https://github.com/sakrac/daisystats
+
+![random preset last shuffle](/media/random_rgb_preset_last.png)
