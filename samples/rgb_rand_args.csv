@@ -1,0 +1,5 @@
+preset,rgb_preset.csv
+background,orange
+order,shuffle
+make,last
+random,100
