@@ -10,7 +10,7 @@ This is a simple command line utility that will display spreadsheet data in the 
 
 # Usage
 
-The simple way to use Daisy Stats is to expert a .csv file from a spreadsheet program and drag it to the program icon. This is works great on PC but not on mac. The workaround is to open a terminal window (click the magnifying glass in the upper right corner, type terminal and hit enter) then drag the mac executable (samples/daisystats_mac) into the termina window followed by the .csv file and then hitting enter on the keyboard.
+The simple way to use DaisyStats is to export a .csv file from a spreadsheet program and drag it to the program icon. This is works great on PC but not on mac. The workaround is to open a terminal window (click the magnifying glass in the upper right corner, type terminal and hit enter) then drag the mac executable (samples/daisystats_mac) into the termina window followed by the .csv file and then hitting enter on the keyboard.
 
 The program will run for a little while and generate quite a large image in the same folder as the .csv file. Fast performance is not a priority for this project. There are a variety of csv file samples to review in the samples folder along with pre-built executables.
 
@@ -20,23 +20,23 @@ This project is a single source file (daisystats.cpp) and has a dependency on Se
 
 # Command Line Arguments:
 
-daisystats [a=<num>] [s=<num>] [f=<shape>] [o=<condition>] [p=<csv file>] [r=<num>] [d=<csv file>] [b=<color>] [input.csv] output.png
+daisystats [a=&lt;num&gt;] [s=&lt;num&gt;] [f=&lt;shape&gt;] [o=&lt;condition&gt;] [p=&lt;csv file&gt;] [r=&lt;num&gt;] [d=&lt;csv file&gt;] [b=&lt;color&gt;] [input.csv] output.png
 
 All command line arguments can also be rows in the top of input.csv file
 If the only command line argument is a csv file a variety of guesses for command line arguments will be made based on the contents of that file.
 
-* a/aspect=<num> : aspect ratio for round or rect, divide width by height
-* b/background=<color>/<image file> : set background color or image
-* d/data=<csv file> : Load in a csv file that has values to represent
-* f/font=<font>: The font for legend, font should have a .ttf extension.
-* l/legend=<height> : add a legend of the data names at the bottom
-* c/color=<color> : set text color
-* m/make=<shape> : Make a shape. Shape is one of: round, rect, first, last
-* o/order=<condition> : Packing order. (orig, large, small, shuffle, name)
-* p/preset=<csv file> : Load in a csv file of preset flowers
-* r/random=<num> : Create <num> random sized flowers, uses presets
-* s/size=<num> : Make the result fit within this size (max width or height) with given line height
-* t/title=<size>:<name> : Add a title on the top of the page.
+* a/aspect=&lt;num&gt; : aspect ratio for round or rect, divide width by height
+* b/background=&lt;color&gt;/&lt;image file&gt; : set background color or image
+* d/data=&lt;csv file&gt; : Load in a csv file that has values to represent
+* f/font=&lt;font&gt;: The font for legend, font should have a .ttf extension.
+* l/legend=&lt;height&gt; : add a legend of the data names at the bottom
+* c/color=&lt;color&gt; : set text color
+* m/make=&lt;shape&gt; : Make a shape. Shape is one of: round, rect, first, last
+* o/order=&lt;condition&gt; : Packing order. (orig, large, small, shuffle, name)
+* p/preset=&lt;csv file&gt; : Load in a csv file of preset flowers
+* r/random=&lt;num&gt; : Create &lt;num&gt; random sized flowers, uses presets
+* s/size=&lt;num&gt; : Make the result fit within this size (max width or height) with given line height
+* t/title=&lt;size&gt;:&lt;name&gt; : Add a title on the top of the page.
 
  Note about colors:
    The color parameter can be 0-15 for c64 palette, 000-fff for amiga, 0000-ffff amiga+alpha,
@@ -69,6 +69,32 @@ If the only command line argument is a csv file a variety of guesses for command
  Any value can be defined as a range and flowers will be created randomly within that range. By default the full range is used but can be overridden by any of the columns named above. To declare the range just add 'to' within the cell, for example: 'white to black' means all colors or '15 to 50' means any number between 15 and 50.
 
  For colors in spreadsheets, see command line arguments
+
+# Example Spreadsheet
+
+This table generates the wildflowers image above.
+
+name|value|petal|color1|color2|center|flat|type
+----|-----|-----|------|------|------|----|----
+Orange Coneflower|28 to 36 cm²|5|#FED600 to #FEA000|#5C3436|15|0|8
+Black-Eyed Susan|28 to 36 cm²|10|#FCDB07 to #FCF007|#723B2F|25|0|8
+Purple Coneflower|40 to 50 cm²|10|#F389D7 to #F3B0F0|#5C3400|15|0|8
+Woodland Sunflower|40 to 50 cm²|20|#F9E400 to #F9C000|#9C5B0C to #D0A010|25|0|8
+Chicory|4 to 8 cm²|10|#B8C3F2 to #A0B0FF|#ECDBE1|10|0.5|8
+Calico Aster|1 to 1.5 cm²|5|#D0D0FF to #F0F0FF|#F9FA06 to #F98006|20|0.1|8
+Prickly Lettuce|8 to 10 cm²|85|#EFEFa0|#d0d060|30|1|8
+Indian Blanket|18 to 22 cm²|90|#F54F53|#824D3F to #c0703f|25|0.2|8
+Sneezeweed|10 to 13 cm²|75|#d4D405|#999903 to c0c003|35|0.75|8
+Oxeye Daisy|10 to 13 cm²|30|#E7F2F8|#e0f309 to #f3e009|25|0|8
+Chickweed|0.25 to 0.5 cm²|5|#FEF8FC|#CAE66F|15|0|8
+Field Mustard|0.75 to 1.25 cm²|15|#FFEF0F|#FFEF0F|10|0|4
+Bluets|0.75 to 1.25 cm²|10|#BAB7EC|#DDD954 to #b0b060|15|0|4
+Flowering Dogwood|40 to 50 cm²|3.5|#F5F6F0 to #f58080|#c5c94B|10|0.25|4
+Honesty|6 to 10 cm²|5|#FE95F8 to #e040ff|#B8B278|5|0|4
+Western Anemone|8 to 12 cm²|40|#FDE5BA|#E68E49 to #e0f049|30|0|8
+Bunchberry|8 to 12 cm²|15|#E9d7e0|#d7aD66|25|0|4
+Dame's Rocket|1.5 to 2.5 cm²|28|#CF9EED to #DFB0FD|#AF3F7A|5|0|4
+
 
 Latest Version / More Info: https://github.com/sakrac/daisystats
 
