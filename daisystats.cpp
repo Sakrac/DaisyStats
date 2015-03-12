@@ -1185,8 +1185,6 @@ const char** ReadCSV(const char *filename, int &columns, int &rows, const char**
 		size_t l = s;
 		bool q = false, e=true, f=true;
 		int n = 0, cl=0, rw=0, z=0;	// count columns, rows and bytes for strings.
-		const char *pl = nullptr;
-		const char *pc = nullptr;
 		while (l) {
 			char c = *p++;
 			l--;
@@ -1195,10 +1193,10 @@ const char** ReadCSV(const char *filename, int &columns, int &rows, const char**
 				case 0: return nullptr;
 				case '"': if (f) q = true; else if (q) {
 					if (*p==c && l) { z++; p++; l--; } else q = false; } break;
-				case ',': if (!q) { n++; e=true; f=true; z++; pc=p-1; } break;
+				case ',': if (!q) { n++; e=true; f=true; z++; } break;
 				case '\r':
 				case '\n': if (q) break; if (n|!f) { n++; z++;
-					if (n>cl) cl=n; rw++; n=0; f=true; pl=p-1; } break;
+					if (n>cl) cl=n; rw++; n=0; f=true; } break;
 				default: z++; f = false; break;
 			}
 		}
@@ -1699,7 +1697,7 @@ int Flora::Do()
 					img_wid/int(lg_maxx + legend_height*2) : legend_count;
 			}
 			legend_lines = (legend_count + legend_columns-1) / legend_columns;
-			legend_center = 0.5 * (img_wid - (legend_columns * (lg_maxx-lg_minx)));
+			legend_center = 0.5 * (img_wid/legend_columns - lg_maxx - legend_height);
 
 			if (!bitmap)
 				img_hgt += legend_height * legend_lines;
