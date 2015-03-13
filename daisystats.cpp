@@ -1191,7 +1191,7 @@ const char** ReadCSV(const char *filename, int &columns, int &rows, const char**
 			if (e && c>' ') e = false;
 			switch (c) {
 				case 0: return nullptr;
-				case '"': if (f) q = true; else if (q) {
+				case '"': if (f) { q=!q; f=!f; } else if (q) {
 					if (*p==c && l) { z++; p++; l--; } else q = false; } break;
 				case ',': if (!q) { n++; e=true; f=true; z++; } break;
 				case '\r':
@@ -1213,7 +1213,7 @@ const char** ReadCSV(const char *filename, int &columns, int &rows, const char**
 				if (e && c>' ') e = false;
 				switch (c) {
 					case 0: return nullptr;
-					case '"': if (f) q = true; else if (q) { if (*p==c && l) { *w++=c; p++; l--; } else q = false; } break;
+					case '"': if (f) { q=!q; f=!f; } else if (q) { if (*p==c && l) { *w++=c; p++; l--; } else q = false; } break;
 					case ',': if (!q) { n++; e=true; *w++=0; f=true; if((o-ret)<(cl*rw)) *o++=w; } break;
 					case '\r':
 					case '\n': if (q) break; if (n|!f) { n++; n=0; f=true; *w++=0; if((o-ret)<(cl*rw)) *o++=w; } break;
