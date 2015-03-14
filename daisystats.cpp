@@ -51,16 +51,17 @@ const char Instructions[] = {
 	"\n"
 	" a/aspect=<num> : aspect ratio for round or rect, divide width by height\n"
 	" b/background=<color>/<image file> : set background color or image\n"
+	" c/color=<color> : set text color\n"
 	" d/data=<csv file> : Load in a csv file that has values to represent\n"
 	" f/font=<font>: The font for legend, font should have a .ttf extension.\n"
 	" l/legend=<height> : add a legend of the data names at the bottom\n"
-	" c/color=<color> : set text color\n"
+	" l/legend=inside : show the legend inside the flowers instead of the bottom\n"
+	" n/name_color=<color> : Use a separate color for names than the title\n"
 	" m/make=<shape> : Make a shape. Shape is one of: round, rect, first, last\n"
 	" o/order=<condition> : Packing order. (orig, large, small, shuffle, name)\n"
 	" p/preset=<csv file> : Load in a csv file of preset flowers\n"
 	" r/random=<num> : Create <num> random sized flowers, uses presets\n"
 	" s/size=<num> : Make the result fit within this size (max width or height)\n"
-	"   with given line height\n"
 	" t/title=<size>:<name> : Add a title on the top of the page."
 	"\n"
 	" Note about colors:\n"
@@ -120,10 +121,11 @@ enum flower_petal {
 enum arguments {
 	A_ASPECT,
 	A_BACKGROUND,
+    A_COLOR,
 	A_DATA,
 	A_FONT,
 	A_LEGEND,
-	A_COLOR,
+    A_NAME_COLOR,
 	A_MAKE,
 	A_ORDER,
 	A_PRESET,
@@ -137,10 +139,11 @@ enum arguments {
 const char *cmd_args[] = {
 	"aspect",
 	"background",
+    "color",
 	"data",
 	"font",
 	"legend",
-	"color",
+    "name_color",
 	"make",
 	"order",
 	"preset",
@@ -537,7 +540,7 @@ void DrawCodepointAt(int codepoint, double x, double y, float scale, color col, 
 	stbtt_MakeCodepointBitmapSubpixel(&font, glyph_buf + TTY_GUARD, wc, hc, wc, scale, scale, (float)(x - floor(x)), (float)(y - floor(y)), codepoint);
 	unsigned char *bm_char = glyph_buf + TTY_GUARD;
 
-	int ix = ox + (int)x, iy = oy + (int)y;
+    int ix = ox + (int)x, iy = oy + (int)y;
 	int w = (ix+wc)<wid ? wc : (wid-ix), h = (iy+hc)<hgt ? hc : (hgt-iy);
 
 	if (ix>=wid || iy>=hgt || (ix+wc)<=0 || (iy+hc)<=0)
@@ -1042,8 +1045,10 @@ struct Flora {
 	int random_flowers;
 	color background;
 	color text_color;
+    color name_color;
 	int user_args;
 	int data_found;
+    bool legend_inside;
 
 
 	Flora() :
@@ -1065,12 +1070,15 @@ struct Flora {
 	title_height(0),
 	random_flowers(0),
 	user_args(0),
-	data_found(0)
+	data_found(0),
+    legend_inside(false)
 	{
 		color bg = { 255, 255, 255, 255 };
 		color fg = { 0, 0, 0, 255 };
+        color mg = { 0xaa, 0x55, 0xcc, 0xbd };
 		background = bg;
 		text_color = fg;
+        name_color = mg;
 	}
 
 	int Do();
@@ -1415,36 +1423,47 @@ bool Flora::Argument(const char *command, const char *arg, bool full)
 			aspect = strtod(arg, nullptr);
 			printf("Aspect=%f\n", aspect);
 			break;
-		case A_BACKGROUND:
+		case A_BACKGROUND: {
 			background = read_col(arg);
 			background_file = arg;
-			if (!(user_args & (1U<<A_COLOR))) {
-				u8 r = (background.r+background.g+background.b)<(128*3) ? 255 : 0;
-				color l = { r, r, r, 255 };
+			u8 r = (background.r+background.g+background.b)<(128*3) ? 255 : 0;
+			color l = { r, r, r, 255 };
+			if (!(user_args & (1U<<A_COLOR)))
 				text_color = l;
-			}
+			if (!(user_args & (1U<<A_NAME_COLOR)))
+				name_color = l;
 			printf("Background=%s\n", arg);
 			break;
+		}
 		case A_DATA:
 			data_file = arg;
 			printf("Data=%s\n", arg);
+			break;
+		case A_COLOR:
+			text_color = read_col(arg);
+			if (!(user_args & (1U<<A_NAME_COLOR)))
+				name_color = text_color;
 			break;
 		case A_FONT:
 			font_name = arg;
 			printf("Font=%s\n", font_name);
 			break;
 		case A_LEGEND:
-			legend_height = atoi(arg);
-			if (const char *fs=strchr(arg,':'))
-				font_name=fs+1;
-			printf("Legend=%d\n", legend_height);
-			break;
-		case A_COLOR:
-			text_color = read_col(arg);
+            if (tolower(arg[0])=='i')
+                legend_inside = true;
+            else {
+                legend_height = atoi(arg);
+                if (const char *fs=strchr(arg,':'))
+                    font_name=fs+1;
+                printf("Legend=%d\n", legend_height);
+            }
 			break;
 		case A_MAKE:
 			shape = (fit)byIndex(arg, fit_name, FIT_COUNT, shape);
 			printf("Make=%s\n", fit_name[shape]);
+			break;
+		case A_NAME_COLOR:
+			name_color = read_col(arg);
 			break;
 		case A_ORDER:
 			order = (sort)byIndex(arg, sort_name, SORT_COUNT, order);
@@ -1556,7 +1575,7 @@ int Flora::Do()
 			data_file = "flowers.png";
 	}
 	if (!legend_height && (data_found&((1U<<CLN_NAME)|(1U<<CLN_VALUE))) == ((1U<<CLN_NAME)|(1U<<CLN_VALUE))) {
-		legend_height = img_widhgt>>6;
+        legend_height = legend_inside ? 0 : (img_widhgt>>6);
 		if (!title_height && data_file) {
 			int last_sls=(int)strlen(data_file), max_dot=last_sls;
 			while (last_sls>=0 && data_file[last_sls]!='\\' && data_file[last_sls]!='/') last_sls--;
@@ -1648,7 +1667,7 @@ int Flora::Do()
 	double cx = 0.5*((double)img_wid-(maxx-minx));
 	double cy = 0.5*((double)img_hgt-(maxy-miny));
 
-	bool hasFont = (legend_height || (title_height&&title_str)) && InitFont(font_name);
+	bool hasFont = (legend_height || legend_inside || (title_height&&title_str)) && InitFont(font_name);
 	int legend_columns = 0;
 	int legend_lines = 0;
 	int legend_count = 0;
@@ -1659,7 +1678,7 @@ int Flora::Do()
 		cy += title_height;
 	}
 	double legend_center = 0.0;
-	if (legend_height && hasFont) {
+	if (legend_height && hasFont && !legend_inside) {
 		double scale = FontSizeScale((float)legend_height);
 		double lg_minx=0, lg_maxx=0, lg_miny=0, lg_maxy=0;
 		for (flower* f=flowers; f<(flowers+num_flowers); f++) {
@@ -1737,7 +1756,19 @@ int Flora::Do()
 		DrawTextAt((const unsigned char*)title_str, (float)scale, 0.5*(img_wid-scale*(box.maxx-box.minx)),
 				   scale*baseline, text_color, bitmap, img_wid, img_hgt);
 	}
-	if (legend_height && hasFont) {
+    if (legend_inside && hasFont) {
+        printf("Adding legend inside..\n");
+        for (flower* f=flowers; f<(flowers+num_flowers); f++) {
+            if (f->name) {
+                textspace box = GetTextSpace((unsigned const char*)f->name);
+                color c = name_color;
+                double w = box.maxx-box.maxy, h = box.maxy-box.miny;
+                double mh = 0.5*(box.minx+box.maxx), mv = 0.5*(box.miny+box.maxy);
+                double scale = 2.0*f->r/sqrt(w*w+h*h);
+                DrawTextAt((const unsigned char*)f->name, (float)scale, f->x+cx-scale*mh, f->y+cy-scale*mv, c, bitmap, img_wid, img_hgt);
+            }
+        }
+    } else if (legend_height && hasFont) {
 		printf("Adding legend..\n");
 		double scale = FontSizeScale((float)legend_height);
 		int centerHgt = FontCenterHgt();
@@ -1755,7 +1786,7 @@ int Flora::Do()
 						sprintf(text, "%s: %s", f->name, f->value);
 					else
 						sprintf(text, "%s", f->name);
-					color c = text_color;
+					color c = name_color;
 					double y = img_hgt-(legend_lines-n/legend_columns) * legend_height - EDGE_MARGIN+scale*centerHgt;
 					double x = (img_wid/legend_columns) * (n%legend_columns) + legend_height + legend_center;
 					drawpetal(bitmap, img_wid, x, y, 0.5*legend_height, f->c * 0.5 * legend_height, 0.0, 1.0/(f->k*f->k*f->k), f->f,
