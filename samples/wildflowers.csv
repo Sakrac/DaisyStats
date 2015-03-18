@@ -1,19 +1,20 @@
 name,value,petal,color1,color2,center,flat,type
-Orange Coneflower,28 to 36 cm²,5,#FED600 to #FEA000,#5C3436,15,0,8
-Black-Eyed Susan,28 to 36 cm²,10,#FCDB07 to #FCF007,#723B2F,25,0,8
-Purple Coneflower,40 to 50 cm²,10,#F389D7 to #F3B0F0,#5C3400,15,0,8
-Woodland Sunflower,40 to 50 cm²,20,#F9E400 to #F9C000,#9C5B0C to #D0A010,25,0,8
-Chicory,4 to 8 cm²,10,#B8C3F2 to #A0B0FF,#ECDBE1,10,0.5,8
-Calico Aster,1 to 1.5 cm²,5,#D0D0FF to #F0F0FF,#F9FA06 to #F98006,20,0.1,8
-Prickly Lettuce,8 to 10 cm²,85,#EFEFa0,#d0d060,30,1,8
-Indian Blanket,18 to 22 cm²,90,#F54F53,#824D3F to #c0703f,25,0.2,8
-Sneezeweed,10 to 13 cm²,75,#d4D405,#999903 to c0c003,35,0.75,8
-Oxeye Daisy,10 to 13 cm²,30,#E7F2F8,#e0f309 to #f3e009,25,0,8
-Chickweed,0.25 to 0.5 cm²,5,#FEF8FC,#CAE66F,15,0,8
+Orange Coneflower,28 to 36 cm²,5,#FED600 to #FEA000,#5C3436,15,0,12
+Black-Eyed Susan,28 to 36 cm²,10,#FCDB07 to #FCF007,#723B2F,25,0,12
+Purple Coneflower,40 to 50 cm²,10,#F389D7 to #F3B0F0,#5C3400,15,0,12
+Woodland Sunflower,40 to 50 cm²,20,#F9E400 to #F9C000,#9C5B0C to #D0A010,25,0,10
+Chicory,4 to 8 cm²,10,#B8C3F2 to #A0B0FF,#ECDBE1,10,0.5,18
+Calico Aster,1 to 1.5 cm²,5,#D0D0FF to #F0F0FF,#F9FA06 to #F98006,20,0.1,28
+Prickly Lettuce,8 to 10 cm²,55,#EFEFa0,#d0d060,30,1,20
+Indian Blanket,18 to 22 cm²,50,#F54F53,#824D3F to #c0703f,25,0.2,32
+Sneezeweed,10 to 13 cm²,75,#d4D405,#999903 to c0c003,35,0.75,16
+Oxeye Daisy,10 to 13 cm²,30,#E7F2F8,#e0f309 to #f3e009,25,0,40
+Chickweed,0.25 to 0.5 cm²,5,#FEF8FC,#CAE66F,15,0,12
 Field Mustard,0.75 to 1.25 cm²,15,#FFEF0F,#FFEF0F,10,0,4
 Bluets,0.75 to 1.25 cm²,10,#BAB7EC,#DDD954 to #b0b060,15,0,4
-Flowering Dogwood,40 to 50 cm²,3.5,#F5F6F0 to #f58080,#c5c94B,10,0.25,4
+Flowering Dogwood,40 to 50 cm²,3.5,#F5F6F0 to #f5d0d0,#c5c94B,10,0.25,4
 Honesty,6 to 10 cm²,5,#FE95F8 to #e040ff,#B8B278,5,0,4
-Western Anemone,8 to 12 cm²,40,#FDE5BA,#E68E49 to #e0f049,30,0,8
+Western Anemone,8 to 12 cm²,40,#FDE5BA,#E68E49 to #e0f049,30,0,6
 Bunchberry,8 to 12 cm²,15,#E9d7e0,#d7aD66,25,0,4
 Dame's Rocket,1.5 to 2.5 cm²,28,#CF9EED to #DFB0FD,#AF3F7A,5,0,4
+Spiderwort,20 cm²,25,#BC85FA to #C39DFF,#EFD633,3,0,3

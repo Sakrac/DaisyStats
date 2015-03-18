@@ -3,8 +3,8 @@
 
 	https://github.com/sakrac/daisystats
 */
-
 // standard stuff
+#define _CRT_SECURE_NO_WARNINGS
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,7 +88,7 @@ const char Instructions[] = {
 	"   linear1: linearity of petal color randomization in %, 0 means box space 100 means straight line\n"
 	"   linear2: linearity of center color randomization in %\n"
 	"   flat: petal ends rounded at 0.0 and flat at 1.0\n"
-	"   type: type of flower, can be either 8 or 4 (petal count)\n"
+	"   type: number of petals in flower, between 3 and 32\n"
 	"\n"
 	" To export excel, pages or any other spreadsheet software's proprietary\n"
 	"   data format to CSV, look in the file menu for an option to \"Export\"\n"
@@ -112,11 +112,6 @@ const char Instructions[] = {
 //
 //
 
-
-enum flower_petal {
-	FLOP_8,
-	FLOP_4
-};
 
 enum arguments {
 	A_ASPECT,
@@ -300,70 +295,23 @@ static const int num_colornames = sizeof(colornames) / sizeof(colornames[0]);
 //
 //
 
-
-/* petals:
-   8: (x^2+y^2+k*(x^2/|y|+y^2/|x|+1/sqrt(2) * ((x+y)^2/|y-x| + (y-x)^2/|x+y|)))
-   4: (x^2+y^2+k*(x^2/|y|+y^2/|x|))
-*/
-
 // get the radius value for x, y and k
-double petval(double x, double y, double k)
+inline double petval4(double x, double y, double k)
 {
-	double ep = 1e-12;
-	double ax = fabs(x);
-	double ay = fabs(y);
-	double dx = fabs(x+y);
-	double dy = fabs(y-x);
-
-	return x*x+y*y+k*(x*x/(ay<ep?ep:ay)+y*y/(ax<ep?ep:ax)+invsqrt2*(dx*dx/(dy<ep?ep:dy)+dy*dy/(dx<ep?ep:dx)));
-}
-
-// edge is farthest when x=y/tan(a), r^2=x^2+y^2
-double petedge(double radius, double k, double a)
-{
-	double t = tan(a);
-	double x = radius/sqrt(2.0+2.0/t);
-	double y = x/t;
-
-	return petval(x, y, k);
-}
-
-// get the radius value for x, y and k
-double petval4(double x, double y, double k)
-{
-	double ep = 1e-12;
+	static const double ep = 1e-12;
 	double ax = fabs(x);
 	double ay = fabs(y);
 
 	return x*x+y*y+k*(x*x/(ay<ep?ep:ay)+y*y/(ax<ep?ep:ax));
 }
 
-// edge is farthest when x=y, r^2=x^2+y^2
-double petedge4(double radius, double k, double a)
+void drawnpetal(unsigned int *bitmap, int bitmap_width, double x, double y, double r, double c, double a, double k, double f, unsigned int petcol, unsigned int ctrcol, int petals)
 {
-	double t = tan(a);
-	double x = radius/sqrt(2.0+2.0/t);
-	double y = x/t;
-
-	return petval4(x, y, k);
-}
-
-// x/y: position
-// r: outer radius
-// c: inner radius
-// a: angle
-// k: petal width (0 => just a circle, 1 => narrow petals)
-// f: "flatness" at the end of petals. 0 means rounded, 1 means flat.
-// petcol: petal color
-// ctrcol: center color
-void drawpetal(unsigned int *bitmap, int bitmap_width, double x, double y, double r, double c, double a, double k, double f, unsigned int petcol, unsigned int ctrcol, flower_petal type)
-{
-	// figure out some constants
-	double tip_angle = (type==FLOP_4 ? (pi_dbl/4) : (pi_dbl/8)) * (2.0-f)/2.0;
-	double petal_edge = type==FLOP_4 ? petedge4(r-c, k, tip_angle) : petedge(r-c, k, tip_angle);
-	double center_edge = c*c, flower_edge=r*r;
-	double sn = sin(a);
-	double cs = cos(a);
+	double or = r-c;
+	double tip_angle = (pi_dbl/4) * (2.0-f)/2.0;
+	double pe = petval4(cos(tip_angle), sin(tip_angle), k);
+	double ce = c*c, fe = r*r;
+	double ps = (double)petals/4.0;
 
 	// get image center point
 	int cx = (int)x;
@@ -383,19 +331,16 @@ void drawpetal(unsigned int *bitmap, int bitmap_width, double x, double y, doubl
 		for (int h=-w; h<=w; h++) {
 			double vx = double(h)+x;
 			double vy = double(v)+y;
-			double r = (vx*vx+vy*vy);
-			if (r<flower_edge) {
-				if (r<center_edge)
+			double rp = (vx*vx+vy*vy);
+			if (rp<fe) {
+				if (rp<ce)
 					*draw++ = ctrcol;
 				else {
-					double rc = c/sqrt(r);
-					vx -= vx*rc;
-					vy -= vy*rc;
-					if ((type==FLOP_8 ? petval(vx*cs+vy*sn, vy*cs-vx*sn, k) :
-						 petval4(vx*cs+vy*sn, vy*cs-vx*sn, k))<petal_edge)
-						*draw++ = petcol;
-					else
-						draw++;
+					double ap = atan2(vx, vy) * ps + a;
+					rp = (sqrt(rp) - c)/or;
+					if (petval4(rp*cos(ap), rp*sin(ap), k) < pe)
+						*draw = petcol;
+					draw++;
 				}
 			}
 		}
@@ -687,7 +632,7 @@ struct flower {
 	double x, y, c, r, a, k, f;
 	const char *name, *value;
 	color col_pet, col_ctr;
-	flower_petal type;
+	int type;
 	u8 lin_pet, lin_ctr;	// 0 = rgb cube interp, 255 = straight
 };
 
@@ -697,12 +642,12 @@ struct flower_pair {
 
 static flower default_low = {
 	-10000.0, -10000.0, 0.15, 1.0, 0.0, 0.0001, 0.0, nullptr, nullptr,
-	{0x40,0x40,0x40,0xff}, {0,0,0,0xff}, FLOP_8, 0, 0
+	{0x40,0x40,0x40,0xff}, {0,0,0,0xff}, 3, 0, 0
 };
 
 static flower default_high = {
 	10000.0, 10000.0, 0.4, 32.0, 6.24, 0.5, 0.0, nullptr, nullptr,
-	{0xff, 0xff, 0xff, 0xff}, {0xff, 0xff, 0xff, 0xff}, FLOP_8, 0, 0
+	{0xff, 0xff, 0xff, 0xff}, {0xff, 0xff, 0xff, 0xff}, 18, 0, 0
 };
 
 static int flower_larger(const void* p1, const void* p2)
@@ -875,6 +820,8 @@ void initflower(flower *f, const flower &low, const flower &high)
 	f->col_ctr = colrand(low.col_ctr, high.col_ctr, low.lin_ctr);
 	f->col_pet = colrand(low.col_pet, high.col_pet, low.lin_pet);
 	f->type = low.type;
+	if (high.type>low.type)
+		 f->type += ((rand()*113)>>8) % (high.type-low.type);
 }
 
 
@@ -1166,7 +1113,12 @@ void GetRange(const char *cell, ColumnIndex type, flower &low, flower &high)
 			break;
 
 		case CLN_TYPE:
-			high.type = low.type = strtol(cell, nullptr, 10)==4 ? FLOP_4 : FLOP_8;
+			low.type = atoi(cell);
+			high.type = atoi(val2);
+			if (low.type<3)		low.type = 3;
+			if (low.type>40)	low.type = 40;
+			if (high.type<3)	high.type = 3;
+			if (high.type>40)	high.type = 40;
 			break;
 
 		default:
@@ -1209,6 +1161,7 @@ const char** ReadCSV(const char *filename, int &columns, int &rows, const char**
 			}
 		}
 		z++;
+		if (!cl) cl = n;
 		if (n) rw++;	// get room for array and strings and fill it out.
 		char **ret = nullptr;
 		if (cl>0 && rw>0) {
@@ -1582,12 +1535,15 @@ int Flora::Do()
 			int first_dot = last_sls+1;
 			while (first_dot<max_dot && data_file[first_dot]!='.') first_dot++;
 			memcpy(title_buf, data_file+last_sls+1, first_dot-last_sls-1);
-			title_buf[first_dot-last_sls]=0;
+			title_buf[first_dot-last_sls-1]=0;
 			char *b = title_buf; while (*b) { if (*b == '_') *b = ' '; b++; }
 			title_str = title_buf;
 			title_height = img_widhgt>>3;
 		}
 	}
+
+	if (!(user_args&(1<<A_NAME_COLOR)))
+		name_color = text_color;
 
 	// IMAGE SETUP
 	unsigned int bc = *(unsigned int*)&background;
@@ -1743,7 +1699,7 @@ int Flora::Do()
 
 	printf("Image size: %.d, %d\nPainting %d flowers..\n", img_wid, img_hgt, num_flowers);
 	for (flower* f=flowers; f<(flowers+num_flowers); f++) {
-		drawpetal(bitmap, img_wid, f->x+cx, f->y+cy, f->r, f->c * f->r, f->a, 1.0/(f->k*f->k*f->k), f->f,
+		drawnpetal(bitmap, img_wid, f->x + cx, f->y + cy, f->r, f->c * f->r, f->a, 0.05 / (f->k), f->f,
 				  *(unsigned int*)&f->col_pet, *(unsigned int*)&f->col_ctr, f->type);
 	}
 
@@ -1789,7 +1745,7 @@ int Flora::Do()
 					color c = name_color;
 					double y = img_hgt-(legend_lines-n/legend_columns) * legend_height - EDGE_MARGIN+scale*centerHgt;
 					double x = (img_wid/legend_columns) * (n%legend_columns) + legend_height + legend_center;
-					drawpetal(bitmap, img_wid, x, y, 0.5*legend_height, f->c * 0.5 * legend_height, 0.0, 1.0/(f->k*f->k*f->k), f->f,
+					drawnpetal(bitmap, img_wid, x, y, 0.5*legend_height, f->c * 0.5 * legend_height, 0.0, 0.25/(f->k*f->k), f->f,
 							  *(unsigned int*)&f->col_pet, *(unsigned int*)&f->col_ctr, f->type);
 					DrawTextAt((const unsigned char*)text, (float)scale, x+legend_height,
 							   y+scale*centerHgt, c, bitmap, img_wid, img_hgt);
