@@ -57,7 +57,7 @@ const char Instructions[] = {
 	" l/legend=<height> : add a legend of the data names at the bottom\n"
 	" l/legend=inside : show the legend inside the flowers instead of the bottom\n"
 	" n/name_color=<color> : Use a separate color for names than the title\n"
-	" m/make=<shape> : Make a shape. Shape is one of: round, rect, first, last\n"
+	" m/make=<shape> : Make a shape. Shape is one of: most, round, rect, first, last\n"
 	" o/order=<condition> : Packing order. (orig, large, small, shuffle, name)\n"
 	" p/preset=<csv file> : Load in a csv file of preset flowers\n"
 	" r/random=<num> : Create <num> random sized flowers, uses presets\n"
@@ -89,6 +89,7 @@ const char Instructions[] = {
 	"   linear2: linearity of center color randomization in %\n"
 	"   flat: petal ends rounded at 0.0 and flat at 1.0\n"
 	"   type: number of petals in flower, between 3 and 32\n"
+	"   count: create this many copies of this entry\n"
 	"\n"
 	" To export excel, pages or any other spreadsheet software's proprietary\n"
 	"   data format to CSV, look in the file menu for an option to \"Export\"\n"
@@ -152,6 +153,7 @@ enum fit {
 	FIT_RECT,
 	FIT_FIRST,
 	FIT_LAST,
+	FIT_MOST,
 
 	FIT_COUNT
 };
@@ -160,7 +162,8 @@ const char *fit_name[] = {
 	"round",
 	"rect",
 	"first",
-	"last"
+	"last",
+	"most"
 };
 
 enum sort {
@@ -194,11 +197,12 @@ enum ColumnIndex {
 	CLN_FLAT,
 	CLN_TYPE,
 	CLN_LENGTH,
+	CLN_COUNT,
 
-	CLN_COUNT
+	CLN_ENTRIES
 };
 
-const char *ColumnName[CLN_COUNT] = {
+const char *ColumnName[CLN_ENTRIES] = {
 	"value",
 	"name",
 	"center",
@@ -210,7 +214,8 @@ const char *ColumnName[CLN_COUNT] = {
 	"linear2",
 	"flat",
 	"type",
-	"length"
+	"length",
+	"count"
 };
 
 typedef unsigned char u8;
@@ -307,7 +312,7 @@ inline double petval4(double x, double y, double k)
 
 void drawnpetal(unsigned int *bitmap, int bitmap_width, double x, double y, double r, double c, double a, double k, double f, unsigned int petcol, unsigned int ctrcol, int petals)
 {
-	double or = r-c;
+	double orc = r-c;
 	double tip_angle = (pi_dbl/4) * (2.0-f)/2.0;
 	double pe = petval4(cos(tip_angle), sin(tip_angle), k);
 	double ce = c*c, fe = r*r;
@@ -337,7 +342,7 @@ void drawnpetal(unsigned int *bitmap, int bitmap_width, double x, double y, doub
 					*draw++ = ctrcol;
 				else {
 					double ap = atan2(vx, vy) * ps + a;
-					rp = (sqrt(rp) - c)/or;
+					rp = (sqrt(rp) - c)/orc;
 					if (petval4(rp*cos(ap), rp*sin(ap), k) < pe)
 						*draw = petcol;
 					draw++;
@@ -683,24 +688,26 @@ void reorder(flower *flowers, int count, sort order)
 		qsort(flowers, count, sizeof(flower), order==SORT_LARGE ? flower_larger : (order==SORT_NAME ? flower_name : flower_smaller));
 }
 
-bool place_next_to(flower *flowers, int index, int first, int second, double &best_dist, double &x, double &y, double aspect, fit shape)
+bool place_next_to(flower *flowers, flower *f, flower *f_first, flower *f_second, double &best_dist, double &x, double &y, double aspect, fit shape)
 {
-	double x0 = flowers[first].x;
-	double y0 = flowers[first].y;
-	double x1 = flowers[second].x;
-	double y1 = flowers[second].y;
+	double x0 = f_first->x;
+	double y0 = f_first->y;
+	double x1 = f_second->x;
+	double y1 = f_second->y;
 	double dx = x1-x0;
 	double dy = y1-y0;
-	double h = sqrt(dx*dx+dy*dy);
-	double r0 = flowers[first].r+flowers[index].r;
-	double r1 = flowers[second].r+flowers[index].r;
-	double h0 = (r0*r0-r1*r1+h*h)/(2.0*h);
+	double h2 = dx*dx+dy*dy;
+	double h = sqrt(h2);
+	double r0 = f_first->r+f->r;
+	double r1 = f_second->r+f->r;
+	double h0 = (h2+r0*r0-r1*r1)/(2.0*h);
 	double w = r0*r0-h0*h0;
 	if (w>=0.0) {
 		w = sqrt(w);
 		for (int s=0; s<2; s++) {
-			double tx = x0+(h0*dx + (s?1.0:-1.0)*w*dy)/h;
-			double ty = y0+(h0*dy - (s?1.0:-1.0)*w*dx)/h;
+			double sign = s ? 1.0 : -1.0;
+			double tx = x0+(h0*dx + sign*w*dy)/h;
+			double ty = y0+(h0*dy - sign*w*dx)/h;
 			double ox = tx-flowers->x;
 			double oy = ty-flowers->y;
 			double td = shape==FIT_RECT ?
@@ -708,11 +715,11 @@ bool place_next_to(flower *flowers, int index, int first, int second, double &be
 			ox*ox+aspect*aspect*oy*oy;
 			if (td<best_dist) {
 				bool blocked = false;
-				for (int c=0; c<index; c++) {
-					if (c!=first && c!=second) {
-						ox = flowers[c].x-tx;
-						oy = flowers[c].y-ty;
-						double ro = flowers[c].r+flowers[index].r;
+				for (flower *c=flowers; c<f; c++) {
+					if (c!=f_first && c!=f_second) {
+						ox = c->x-tx;
+						oy = c->y-ty;
+						double ro = c->r+f->r;
 						if ((ox*ox+oy*oy)<(ro*ro)) {
 							blocked = true;
 							break;
@@ -730,6 +737,8 @@ bool place_next_to(flower *flowers, int index, int first, int second, double &be
 	}
 	return false;
 }
+
+inline double sqr(double x) { return x*x; }
 
 void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 {
@@ -759,39 +768,53 @@ void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 			double best_dist = DBL_MAX;
 			int found = 0;
 			int best_pair = -1;
-			for (int pi=0; pi<num_pairs; pi++) {
-				int p = shape==FIT_LAST ? num_pairs-1-pi : pi;
-				const flower_pair &pair = prs[p];
-				if (place_next_to(flowers, n, pair.first, pair.second,
-								  best_dist, x, y, aspect, shape)) {
-					found++;
-					best_pair = p;
-				}
-				if ((shape==FIT_FIRST || shape==FIT_LAST) && found)
-					break;
-			}
-			if ((num_pairs+1)<max_pairs) {
-				if (found) {
-					prs[num_pairs].first = prs[best_pair].first;
-					prs[num_pairs].second = n;
-					num_pairs++;
-					prs[num_pairs].first = prs[best_pair].second;
-					prs[num_pairs].second = n;
-					num_pairs++;
-				} else {
-					// FAIL! Try all prior instead of just the pairs..
-					for (int first=n-1; first>0; --first) {
-						for (int second=first-1; second>=0; --second) {
-							if (place_next_to(flowers, n, first, second,
-											  best_dist, x, y, aspect, shape)) {
-								prs[num_pairs].first = first;
-								prs[num_pairs].second = n;
-								num_pairs++;
-								prs[num_pairs].first = second;
-								prs[num_pairs].second = n;
-								num_pairs++;
+			if (shape==FIT_MOST) {
+				for (flower* f2=flowers; f2<f; f2++) {
+					for (flower *f3=flowers; f3<f2; f3++) {
+						double r3 = f->r + f2->r + f3->r;
+						double d2 = sqr(f3->x-f2->x) + sqr(f3->y-f2->y);
+						if (d2 < sqr(r3)) {
+							if (place_next_to(flowers, f, f2, f3, best_dist, x, y, aspect, shape)) {
 								found++;
-								break;
+							}
+						}
+					}
+				}
+			} else {
+				for (int pi=0; pi<num_pairs; pi++) {
+					int p = shape==FIT_LAST ? num_pairs-1-pi : pi;
+					const flower_pair &pair = prs[p];
+					if (place_next_to(flowers, f, &flowers[pair.first], &flowers[pair.second],
+									  best_dist, x, y, aspect, shape)) {
+						found++;
+						best_pair = p;
+					}
+					if ((shape==FIT_FIRST || shape==FIT_LAST) && found)
+						break;
+				}
+				if ((num_pairs+1)<max_pairs) {
+					if (found) {
+						prs[num_pairs].first = prs[best_pair].first;
+						prs[num_pairs].second = n;
+						num_pairs++;
+						prs[num_pairs].first = prs[best_pair].second;
+						prs[num_pairs].second = n;
+						num_pairs++;
+					} else {
+						// FAIL! Try all prior instead of just the pairs..
+						for (int first=n-1; first>0; --first) {
+							for (int second=first-1; second>=0; --second) {
+								if (place_next_to(flowers, f, &flowers[first], &flowers[second],
+												  best_dist, x, y, aspect, shape)) {
+									prs[num_pairs].first = first;
+									prs[num_pairs].second = n;
+									num_pairs++;
+									prs[num_pairs].first = second;
+									prs[num_pairs].second = n;
+									num_pairs++;
+									found++;
+									break;
+								}
 							}
 						}
 					}
@@ -872,14 +895,22 @@ int columnTextScore(const char **pCells, int col, int columns, int rows)
 	return total;
 }
 
-int rowIsMeaningful(const char **pCells, int columns, int value_index)
+int rowIsMeaningful(const char **pCells, int columns, int value_index, int count_index)
 {
 	bool empty = true;
 	for (int c=0; c<columns; c++) {
 		const char *cell = pCells[c];
 		if (cell && *cell!=0) empty = false;
 	}
-	return (!empty && (value_index>=0 && isNumeric(pCells[value_index]))) ? 1 : 0;
+	if (!empty && (value_index>=0 && isNumeric(pCells[value_index]))) {
+		if (count_index>=0) {
+			int n = atoi(pCells[count_index]);
+			if (n>1)
+				return n;
+		}
+		return 1;
+	}
+	return 0;
 }
 
 bool isOneOf(int value, int *set, int set_size)
@@ -1040,7 +1071,7 @@ struct Flora {
 //
 //
 
-void GetRange(const char *cell, ColumnIndex type, flower &low, flower &high)
+int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high)
 {
 	while (cell && *cell==' ') cell++;
 	const char *val2 = strstr(cell, "to");
@@ -1121,9 +1152,13 @@ void GetRange(const char *cell, ColumnIndex type, flower &low, flower &high)
 			if (high.type>40)	high.type = 40;
 			break;
 
+		case CLN_COUNT:
+			return atoi(cell);
+
 		default:
 			break;
 	}
+	return 0;
 }
 
 
@@ -1237,8 +1272,8 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 				}
 			}
 
-			int indices[CLN_COUNT]; for (int i=0; i<CLN_COUNT; i++) indices[i] = -1;
-			for (int c=0; c<columns; c++) if (pCells[c]) for (int n=0; n<CLN_COUNT; n++) {
+			int indices[CLN_ENTRIES]; for (int i=0; i<CLN_ENTRIES; i++) indices[i] = -1;
+			for (int c=0; c<columns; c++) if (pCells[c]) for (int n=0; n<CLN_ENTRIES; n++) {
 				if (strcasecmp(ColumnName[n], (const char*)pCells[c+start_row*columns])==0) {
 					top_row=start_row+1; indices[n] = c; if (!range) flora.data_found |= 1<<n; break;
 				}
@@ -1249,7 +1284,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 				flora.data_found = (flora.data_found | (1<<CLN_VALUE)) & ~(1<<CLN_LENGTH);
 			} else if (!range && indices[CLN_VALUE]<0) {
 				int bestRowNums = -1;
-				for (int c=0; c<columns; c++) if (!isOneOf(c, indices, CLN_COUNT)) {
+				for (int c=0; c<columns; c++) if (!isOneOf(c, indices, CLN_ENTRIES)) {
 					int numNums = 0;
 					for (int r=top_row; r<rows; r++) numNums += isNumeric(pCells[r*columns+c]);
 					if (numNums>bestRowNums) {
@@ -1259,22 +1294,22 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 			} // if no name columns was found, make a guess
 			if (!range && indices[CLN_NAME]<0) {
 				int bestText = -1, bestTextCol = -1;
-				for (int c=0; c<columns; c++) if (!isOneOf(0, indices, CLN_COUNT)) {
+				for (int c=0; c<columns; c++) if (!isOneOf(0, indices, CLN_ENTRIES)) {
 					int score = columnTextScore(pCells, c, columns, rows);
 					if (score>bestText) { bestText=score; bestTextCol = c; };
 				}
 				indices[CLN_NAME] = bestTextCol; flora.data_found |= bestTextCol>=0 ? (1U<<CLN_NAME) : 0;
 			}
-			if (notOneOf(-1, indices, CLN_COUNT)) { // any meaningful columns ?
-				int meaningful_rows = 0; // count meaningful rows
+			if (notOneOf(-1, indices, CLN_ENTRIES)) { // any meaningful columns ?
+				int flowersToCreate = 0; // count meaningful rows
 				for (int r=top_row; r<rows; r++)
-					meaningful_rows += rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE]);
-				if (meaningful_rows) {
-					flowers = f = (flower*)malloc(sizeof(flower) * meaningful_rows * (range ? 2:1));
+					flowersToCreate += rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE], indices[CLN_COUNT]);
+				if (flowersToCreate) {
+					flowers = f = (flower*)malloc(sizeof(flower) * flowersToCreate * (range ? 2:1));
 					int n = 0;
-					int *preset_selected = (int*)malloc(sizeof(int) * meaningful_rows);
+					int *preset_selected = (int*)malloc(sizeof(int) * flowersToCreate);
 					for (int r=top_row; r<rows; r++) {
-						if (rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE])) {
+						if (rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE], indices[CLN_COUNT])) {
 							int preset = n&&num_presets?(preset_selected[n-1]+1)%num_presets : 0;
 							const char **currRow = pCells+r*columns;
 							if (indices[CLN_NAME]>=0 && currRow[indices[CLN_NAME]] && *currRow[indices[CLN_NAME]]) {
@@ -1288,12 +1323,17 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 							preset_selected[n] = preset;
 							flower l = presets?presets[preset*2] : default_low;
 							flower h = presets?presets[preset*2+1] : default_high; // read out range for this index
-							for (int i=0; i<CLN_COUNT; i++) if (indices[i]>=0)
-								GetRange(currRow[indices[i]], (ColumnIndex)i, l, h);
+							int copies = 0;
+							for (int i=0; i<CLN_ENTRIES; i++) if (indices[i]>=0) {
+								int v = GetRange(currRow[indices[i]], (ColumnIndex)i, l, h);
+								if (v && i==CLN_COUNT) copies = v;
+							}
 							if (l.r>0.00001) { // don't add if radius tiny
-								if (range) { *f++ = l; *f++ = h; }
-								else { initflower(f, l, h); f++; }
-								n++; if (n==meaningful_rows) break;
+								for (int cpy=0; cpy<copies; cpy++) {
+									if (range) { *f++ = l; *f++ = h; }
+									else { initflower(f, l, h); f++; }
+									n++; if (n==flowersToCreate) break;
+								}
 							}
 						}
 					}
