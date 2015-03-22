@@ -221,6 +221,7 @@ const char *ColumnName[CLN_ENTRIES] = {
 };
 
 typedef unsigned char u8;
+typedef unsigned short u16;
 typedef unsigned int u32;
 struct color { u8 r, g, b, a; };
 
@@ -378,6 +379,61 @@ char* ReadFile(const char *filename, size_t &size, int padding=0)
 	return nullptr;
 }
 
+
+
+
+//
+//
+// TGA
+//
+//
+
+
+
+#pragma pack(push,1)
+struct STGAHeader
+{
+	u8    mIdentificationFieldSize;
+	u8    mColourMapType;
+	u8    mImageTypeCode;
+	u16   mColorMapOrigin;
+	u16   mColorMapLength;
+	u8    mColourMapEntrySize;
+	u16   mXOrigin;
+	u16   mYOrigin;
+	u16   mWidth;
+	u16   mHeight;
+	u8    mBPP;
+	u8    mImageDescriptorByte;
+};
+#pragma pack(pop)
+
+bool SaveTGA(const char *filename, u16 width, u16 height, u8 *data)
+{
+	FILE *fp;
+	if ((fp = fopen(filename, "wb"))) {
+		STGAHeader image;
+		image.mIdentificationFieldSize = 0;
+		image.mColourMapType = 0;
+		image.mImageTypeCode = 2;
+		image.mColorMapOrigin = 0;
+		image.mColorMapLength = 0;
+		image.mColourMapEntrySize = 0;
+		image.mXOrigin = 0;
+		image.mYOrigin = 0;
+		image.mWidth = width;
+		image.mHeight = height;
+		image.mBPP = 32;
+		image.mImageDescriptorByte = 8;
+
+		fwrite(&image, 1, sizeof(image), fp);
+		for (int y = height-1; y>=0; --y)
+			fwrite(data + size_t(width)*4*size_t(y), width*4, 1, fp);
+		fclose(fp);
+		return true;
+	}
+	return false;
+}
 
 
 
@@ -634,12 +690,16 @@ color colrand(color low, color high, u8 linear)
 //
 //
 
+// separating the flower members for packing from the rendering details
+struct flower_pack {
+	double x, y, r;
+};
 
 struct flower {
-	double x, y, c, r, a, k, f;
+	double c, a, k, f;
 	const char *name, *value;
 	color col_pet, col_ctr;
-	int type;
+	u8 type;				// petal count
 	u8 lin_pet, lin_ctr;	// 0 = rgb cube interp, 255 = straight
 };
 
@@ -647,32 +707,41 @@ struct flower_pair {
     int first, second;
 };
 
+static flower_pack default_low_pack = { -10000.0, -10000.0, 1.0 };
+static flower_pack default_high_pack = { 10000.0, 10000.0, 32.0 };
+
 static flower default_low = {
-	-10000.0, -10000.0, 0.15, 1.0, 0.0, 0.0001, 0.0, nullptr, nullptr,
+	0.15, 0.0, 0.0001, 0.0, nullptr, nullptr,
 	{0x40,0x40,0x40,0xff}, {0,0,0,0xff}, 3, 0, 0
 };
 
 static flower default_high = {
-	10000.0, 10000.0, 0.4, 32.0, 6.24, 0.5, 0.0, nullptr, nullptr,
+	0.4, 6.24, 0.5, 0.0, nullptr, nullptr,
 	{0xff, 0xff, 0xff, 0xff}, {0xff, 0xff, 0xff, 0xff}, 18, 0, 0
 };
 
+struct flower_sort_pack { size_t o; double r; };
+struct flower_sort_name { size_t o; const char *n; };
+union flower_sort { flower_sort_pack p;	flower_sort_name n; };
+
 static int flower_larger(const void* p1, const void* p2)
 {
-	return ((const flower*)p1)->r > ((const flower*)p2)->r ? -1 : 1;
+	return ((const flower_sort_pack*)p1)->r > ((const flower_sort_pack*)p2)->r ? -1 : 1;
 }
 
 static int flower_smaller(const void* p1, const void* p2)
 {
-	return ((const flower*)p1)->r < ((const flower*)p2)->r ? -1 : 1;
+	return ((const flower_sort_pack*)p1)->r < ((const flower_sort_pack*)p2)->r ? -1 : 1;
 }
 
 static int flower_name(const void* p1, const void* p2)
 {
-	return p1==nullptr ? (p2==nullptr ? 0 : -1) : (p2==nullptr ? 1 : strcasecmp((const char*)p1, (const char*)p2));
+	const char *n1 = ((const flower_sort_name*)p1)->n;
+	const char *n2 = ((const flower_sort_name*)p2)->n;
+	return n1 == nullptr ? (n2 == nullptr ? 0 : -1) : (n2 == nullptr ? 1 : strcasecmp(n1, n2));
 }
 
-void reorder(flower *flowers, int count, sort order)
+void reorder(flower *flowers, flower_pack *pack, int count, sort order)
 {
 	if (!count)
 		return;
@@ -682,15 +751,34 @@ void reorder(flower *flowers, int count, sort order)
 			int r = rand()%n;
 			if (r!=n) {
 				flower t = flowers[n];
+				flower_pack tp = pack[n];
 				memmove(flowers+r+1, flowers+r, sizeof(flower) * (n-r));
+				memmove(pack+r+1, pack+r, sizeof(pack) * (n - r));
 				flowers[r] = t;
+				pack[r] = tp;
 			}
 		}
-	} else if (order!=SORT_ORIG)
-		qsort(flowers, count, sizeof(flower), order==SORT_LARGE ? flower_larger : (order==SORT_NAME ? flower_name : flower_smaller));
+	} else if (order == SORT_SMALL || order == SORT_LARGE || order == SORT_NAME) {
+		flower_sort *aPack = (flower_sort*)malloc(sizeof(flower_sort) * count);
+		if (order == SORT_NAME) {
+			for (int p = 0; p < count; p++) { aPack[p].n.n = flowers[p].name; aPack[p].n.o = p; }
+		} else {
+			for (int p = 0; p < count; p++) { aPack[p].p.r = pack[p].r; aPack[p].p.o = p; }
+		}
+		qsort(aPack, count, sizeof(flower_sort_pack), order== SORT_NAME ? flower_name:(order==SORT_LARGE ? flower_larger:flower_smaller));
+		flower_pack *aTempPack = (flower_pack*)malloc(sizeof(flower_pack) * count);
+		for (int p = 0; p < count; p++) { aTempPack[p] = pack[aPack[p].p.o]; }
+		memcpy(pack, aTempPack, sizeof(flower_pack) * count);
+		free(aTempPack);
+		flower *aTempFlow = (flower*)malloc(sizeof(flower) * count);
+		for (int p = 0; p < count; p++) { aTempFlow[p] = flowers[aPack[p].p.o]; }
+		memcpy(flowers, aTempFlow, sizeof(flower) * count);
+		free(aTempFlow);
+		free(aPack);
+	} // re-implement name sorting
 }
 
-bool place_next_to(flower *flowers, flower *f, flower *f_first, flower *f_second, double &best_dist, double &x, double &y, double aspect, fit shape)
+bool place_next_to(flower_pack *flowers, flower_pack *f, flower_pack *f_first, flower_pack *f_second, double &best_dist, double &x, double &y, double aspect, fit shape)
 {
 	double x0 = f_first->x;
 	double y0 = f_first->y;
@@ -717,7 +805,7 @@ bool place_next_to(flower *flowers, flower *f, flower *f_first, flower *f_second
 			ox*ox+aspect*aspect*oy*oy;
 			if (td<best_dist) {
 				bool blocked = false;
-				for (flower *c=flowers; c<f; c++) {
+				for (flower_pack *c = flowers; c<f; c++) {
 					if (c!=f_first && c!=f_second) {
 						ox = c->x-tx;
 						oy = c->y-ty;
@@ -748,7 +836,7 @@ inline double sqr(double x) { return x*x; }
 #define UPDATE_PER 5
 #endif
 
-void pack_flowers(flower *flowers, int count, fit shape, double aspect)
+void pack_flowers(flower_pack *flowers, int count, fit shape, double aspect)
 {
 	if (!count)
 		return;
@@ -761,7 +849,7 @@ void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 
 	int n = 0;
 	int rep = count/UPDATE_PER;
-	for (flower* f=flowers; f<(flowers+count); f++) {
+	for (flower_pack* f = flowers; f<(flowers + count); f++) {
 
 		double r = f->r;
 
@@ -778,8 +866,8 @@ void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 			int found = 0;
 			int best_pair = -1;
 			if (shape==FIT_MOST || shape==FIT_BOX) {
-				for (flower* f2=flowers; f2<f; f2++) {
-					for (flower *f3=flowers; f3<f2; f3++) {
+				for (flower_pack *f2 = flowers; f2<f; f2++) {
+					for (flower_pack *f3 = flowers; f3<f2; f3++) {
 						double r3 = f->r + f2->r + f3->r;
 						double d2 = sqr(f3->x-f2->x) + sqr(f3->y-f2->y);
 						if (d2 < sqr(r3)) {
@@ -843,11 +931,11 @@ void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 }
 
 // create a flower in a random range
-void initflower(flower *f, const flower &low, const flower &high)
+void initflower(flower *f, flower_pack *p, const flower &low, const flower &high, const flower_pack &low_p, const flower_pack &high_p)
 {
-	f->x = 0.0;
-	f->y = 0.0;
-	f->r = dblrand()*(high.r-low.r)+low.r;
+	p->x = 0.0;
+	p->y = 0.0;
+	p->r = dblrand()*(high_p.r-low_p.r)+low_p.r;
 	f->c = dblrand()*(high.c-low.c)+low.c;
 	f->a = dblrand()*(high.a-low.a)+low.a;
 	f->k = dblrand()*(high.k-low.k)+low.k;
@@ -1033,6 +1121,7 @@ struct Flora {
 	int img_widhgt;
 	double aspect;
 	flower *presets;
+	flower_pack *preset_packs;
 	int num_presets;
 	int legend_height;
 	int title_height;
@@ -1059,6 +1148,7 @@ struct Flora {
 	img_widhgt(8192),
 	aspect(16.0/9.0),
 	presets(nullptr),
+	preset_packs(nullptr),
 	num_presets(0),
 	legend_height(0),
 	title_height(0),
@@ -1087,7 +1177,7 @@ struct Flora {
 //
 //
 
-int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high)
+int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high, flower_pack &low_p, flower_pack &high_p)
 {
 	while (cell && *cell==' ') cell++;
 	const char *val2 = strstr(cell, "to");
@@ -1101,13 +1191,13 @@ int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high)
 	switch (type) {
 		case CLN_VALUE:
 			if (cell[0]=='0' && tolower(cell[1])=='x')
-				low.r = sqrt(double(strtol(cell,NULL, 16)));
+				low_p.r = sqrt(double(strtol(cell,NULL, 16)));
 			else
-				low.r = sqrt(strtod(cell, nullptr));	// area is value
+				low_p.r = sqrt(strtod(cell, nullptr));	// area is value
 			if (val2[0]=='0' && tolower(val2[1])=='x')
-				high.r = sqrt(double(strtol(val2,NULL, 16)));
+				high_p.r = sqrt(double(strtol(val2,NULL, 16)));
 			else
-				high.r = sqrt(strtod(val2, nullptr));
+				high_p.r = sqrt(strtod(val2, nullptr));
 			low.value = cell;
 			high.value = val2;
 			break;
@@ -1259,11 +1349,13 @@ const char** ReadCSV(const char *filename, int &columns, int &rows, const char**
 //
 
 
-flower* readValuesFromCSV(const char *filename, bool range, int &count, const char **mem, flower *presets=nullptr, int num_presets=0)
+flower* readValuesFromCSV(const char *filename, bool range, int &count, const char **mem, flower_pack **ppFP,
+						  flower *presets=nullptr, flower_pack *preset_packs=nullptr, int num_presets=0)
 {
 	int columns, rows;
 	const char *CSV;
 	flower *flowers = nullptr, *f = nullptr;
+	flower_pack *flower_packs = nullptr, *fp = nullptr;
 	if (const char** pCells = ReadCSV(filename, columns, rows, &CSV)) {
 		if (columns && rows) { // top row will contain the names of relevant elements
 			int start_row = 0, top_row = 0; // where the values start
@@ -1282,7 +1374,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 					if (flora.data_file!=filename && strcasecmp(flora.data_file, filename)!=0) {
 						recursed = true;
 						flora.extra_str = CSV;
-						flower *ret = readValuesFromCSV(flora.data_file, false, count, mem);
+						flower *ret = readValuesFromCSV(flora.data_file, false, count, mem, ppFP);
 						recursed = false;
 						return ret;
 					}
@@ -1323,6 +1415,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 					flowersToCreate += rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE], indices[CLN_COUNT]);
 				if (flowersToCreate) {
 					flowers = f = (flower*)malloc(sizeof(flower) * flowersToCreate * (range ? 2:1));
+					flower_packs = fp = (flower_pack*)malloc(sizeof(flower_pack) * flowersToCreate * (range ? 2:1));
 					int n = 0;
 					int *preset_selected = (int*)malloc(sizeof(int) * flowersToCreate);
 					for (int r=top_row; r<rows; r++) {
@@ -1340,15 +1433,17 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 							preset_selected[n] = preset;
 							flower l = presets?presets[preset*2] : default_low;
 							flower h = presets?presets[preset*2+1] : default_high; // read out range for this index
+							flower_pack lp = preset_packs ? preset_packs[preset * 2] : default_low_pack;
+							flower_pack hp = preset_packs ? preset_packs[preset * 2 + 1] : default_high_pack; // read out range for this index
 							int copies = 0;
 							for (int i=0; i<CLN_ENTRIES; i++) if (indices[i]>=0) {
-								int v = GetRange(currRow[indices[i]], (ColumnIndex)i, l, h);
+								int v = GetRange(currRow[indices[i]], (ColumnIndex)i, l, h, lp, hp);
 								if (v && i==CLN_COUNT) copies = v;
 							}
-							if (l.r>0.00001) { // don't add if radius tiny
+							if (lp.r>0.00001) { // don't add if radius tiny
 								for (int cpy=0; cpy<copies; cpy++) {
-									if (range) { *f++ = l; *f++ = h; }
-									else { initflower(f, l, h); f++; }
+									if (range) { *f++ = l; *f++ = h; *fp++ = lp; *fp++ = hp; }
+									else { initflower(f, fp, l, h, lp, hp); f++; fp++;  }
 									n++; if (n==flowersToCreate) break;
 								}
 							}
@@ -1361,6 +1456,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 		free((void*)pCells);
 	}
 	*mem = CSV;
+	*ppFP = flower_packs;
 	return flowers;
 }
 
@@ -1490,7 +1586,7 @@ bool Flora::Argument(const char *command, const char *arg, bool full)
 						pset = pbuf;
 					}
 				}
-				if ((presets = readValuesFromCSV(pset, true, num_presets, &preset_str)))
+				if ((presets = readValuesFromCSV(pset, true, num_presets, &preset_str, &preset_packs)))
 					printf("Preset=%s\n", arg);
 			}
 			break;
@@ -1534,22 +1630,26 @@ int Flora::Do()
 	// LOAD OR RANDOMIZE SET OF FLOWERS
 	int num_flowers = 0;
 	flower* flowers = nullptr;
+	flower_pack* flower_packs = nullptr;
 	if (data_file)
-		flowers = readValuesFromCSV(data_file, false, num_flowers, &data_str, presets, num_presets);
+		flowers = readValuesFromCSV(data_file, false, num_flowers, &data_str, &flower_packs, presets, preset_packs, num_presets);
 
 	if (random_flowers) {
 		flower *flowers_rand = (flower*)malloc(sizeof(flower) * (random_flowers+num_flowers));
+		flower_pack *flowers_pack_rand = (flower_pack*)malloc(sizeof(flower_pack) * (random_flowers + num_flowers));
 		if (flowers) {
 			memcpy(flowers_rand, flowers, sizeof(flower) * num_flowers); free(flowers); flowers = nullptr;
+			memcpy(flowers_pack_rand, flower_packs, sizeof(flower_pack) * num_flowers); free(flower_packs); flower_packs = nullptr;
 		}
 		int first_rand = num_flowers;
 		num_flowers += random_flowers;
 		flowers = flowers_rand;
+		flower_packs = flowers_pack_rand;
 		for (int n=first_rand; n<num_flowers; n++) {
 			if (num_presets)
-				initflower(flowers_rand+n, presets[(n%num_presets)*2], presets[(n%num_presets)*2+1]);
+				initflower(flowers_rand+n, flowers_pack_rand+n, presets[(n%num_presets)*2], presets[(n%num_presets)*2+1], preset_packs[(n%num_presets)*2], preset_packs[(n%num_presets)*2+1]);
 			else
-				initflower(flowers_rand+n, default_low, default_high);
+				initflower(flowers_rand+n, flowers_pack_rand+n, default_low, default_high, default_low_pack, default_high_pack);
 		}
 	}
 	bool sets = CombineSharedNames(flowers, num_flowers);
@@ -1637,18 +1737,18 @@ int Flora::Do()
 	}
 
 	// SORT
-	reorder(flowers, num_flowers, order);
+	reorder(flowers, flower_packs, num_flowers, order);
 
 	// PACK
 	printf("Arranging %d flowers\n", num_flowers);
-	pack_flowers(flowers, num_flowers, shape, aspect);
+	pack_flowers(flower_packs, num_flowers, shape, aspect);
 
 	// FIT TO BITMAP
 	double minx=0.0, maxx=0.0, miny=0.0, maxy=0.0;
 	int scale_op = 0;
 	while (scale_op<2) {
 		minx=DBL_MAX, maxx=-DBL_MAX, miny=DBL_MAX, maxy=-DBL_MAX;
-		for (flower* f=flowers; f<(flowers+num_flowers); f++) {
+		for (flower_pack* f=flower_packs; f<(flower_packs+num_flowers); f++) {
 			if ((f->x-f->r)<minx) minx = f->x-f->r;
 			if ((f->x+f->r)>maxx) maxx = f->x+f->r;
 			if ((f->y-f->r)<miny) miny = f->y-f->r;
@@ -1660,7 +1760,7 @@ int Flora::Do()
 			double sx = (maxx-minx)/double(maxwid-EDGE_MARGIN*2);
 			double sy = (maxy-miny)/double(maxhgt-EDGE_MARGIN*2);
 			double s = sx>sy ? 1.0/sx : 1.0/sy;
-			for (flower* f=flowers; f<(flowers+num_flowers); f++) {
+			for (flower_pack* f=flower_packs; f<(flower_packs+num_flowers); f++) {
 				f->x = (f->x-minx)*s + EDGE_MARGIN;
 				f->y = (f->y-miny)*s + EDGE_MARGIN;
 				f->r *= s;
@@ -1746,7 +1846,7 @@ int Flora::Do()
 
 	if (!bitmap) {
 		printf("Could not allocate memory for %d x %d pixels (%d MB)\n",
-			   img_wid, img_hgt, img_wid*img_hgt*4/(1024*1024));
+			   img_wid, img_hgt, img_size*4/(1024*1024));
 		if (data_str) free((void*)data_str);
 		if (preset_str) free((void*)preset_str);
 		if (extra_str) free((void*)extra_str);
@@ -1755,8 +1855,9 @@ int Flora::Do()
 	}
 
 	printf("Image size: %.d, %d\nPainting %d flowers..\n", img_wid, img_hgt, num_flowers);
-	for (flower* f=flowers; f<(flowers+num_flowers); f++) {
-		drawnpetal(bitmap, img_wid, f->x + cx, f->y + cy, f->r, f->c * f->r, f->a, 0.05 / (f->k), f->f,
+	flower_pack *fp = flower_packs;
+	for (flower* f=flowers; f<(flowers+num_flowers); f++, fp++) {
+		drawnpetal(bitmap, img_wid, fp->x + cx, fp->y + cy, fp->r, f->c * fp->r, f->a, 0.05 / (f->k), f->f,
 				  *(unsigned int*)&f->col_pet, *(unsigned int*)&f->col_ctr, f->type);
 	}
 
@@ -1771,14 +1872,15 @@ int Flora::Do()
 	}
     if (legend_inside && hasFont) {
         printf("Adding legend inside..\n");
-        for (flower* f=flowers; f<(flowers+num_flowers); f++) {
+		fp = flower_packs;
+        for (flower* f=flowers; f<(flowers+num_flowers); f++, fp++) {
             if (f->name) {
                 textspace box = GetTextSpace((unsigned const char*)f->name);
                 color c = name_color;
                 double w = box.maxx-box.maxy, h = box.maxy-box.miny;
                 double mh = 0.5*(box.minx+box.maxx), mv = 0.5*(box.miny+box.maxy);
-                double scale = 2.0*f->r/sqrt(w*w+h*h);
-                DrawTextAt((const unsigned char*)f->name, (float)scale, f->x+cx-scale*mh, f->y+cy-scale*mv, c, bitmap, img_wid, img_hgt);
+                double scale = 2.0*fp->r/sqrt(w*w+h*h);
+                DrawTextAt((const unsigned char*)f->name, (float)scale, fp->x+cx-scale*mh, fp->y+cy-scale*mv, c, bitmap, img_wid, img_hgt);
             }
         }
     } else if (legend_height && hasFont) {
@@ -1824,7 +1926,7 @@ int Flora::Do()
 		if (out_file_len>=4 && strcasecmp(out_file+out_file_len-4, ".png")==0)
 			stbi_write_png(out_file, img_wid, img_hgt, 4, bitmap, 0);
 		if (out_file_len>=4 && strcasecmp(out_file+out_file_len-4, ".tga")==0)
-			stbi_write_tga(out_file, img_wid, img_hgt, 4, bitmap);
+			SaveTGA(out_file, img_wid, img_hgt, (u8*)bitmap);
 		if (out_file_len>=4 && strcasecmp(out_file+out_file_len-4, ".bmp")==0)
 			stbi_write_bmp(out_file, img_wid, img_hgt, 4, bitmap);
 	}
