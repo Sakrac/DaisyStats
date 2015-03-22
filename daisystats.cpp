@@ -154,6 +154,7 @@ enum fit {
 	FIT_FIRST,
 	FIT_LAST,
 	FIT_MOST,
+	FIT_BOX,
 
 	FIT_COUNT
 };
@@ -163,7 +164,8 @@ const char *fit_name[] = {
 	"rect",
 	"first",
 	"last",
-	"most"
+	"most",
+	"box"
 };
 
 enum sort {
@@ -328,7 +330,7 @@ void drawnpetal(unsigned int *bitmap, int bitmap_width, double x, double y, doub
 
 	int ir = (int)(2.0*(r+1.0));	// integer radius with buffer
 
-	bitmap += (cy-ir)*bitmap_width + cx;
+	bitmap += size_t(cy-ir)*size_t(bitmap_width) + size_t(cx);
 	for (int v=-ir; v<=ir; v++) {
 		int w = int(sqrt(r*r+1.0-double(v*v)))+1;
 		unsigned int *draw = bitmap - w;
@@ -710,7 +712,7 @@ bool place_next_to(flower *flowers, flower *f, flower *f_first, flower *f_second
 			double ty = y0+(h0*dy - sign*w*dx)/h;
 			double ox = tx-flowers->x;
 			double oy = ty-flowers->y;
-			double td = shape==FIT_RECT ?
+			double td = (shape==FIT_RECT||shape==FIT_BOX) ?
 			((fabs(oy)*aspect)>fabs(ox) ? fabs(oy)*aspect : fabs(ox)) :
 			ox*ox+aspect*aspect*oy*oy;
 			if (td<best_dist) {
@@ -740,6 +742,12 @@ bool place_next_to(flower *flowers, flower *f, flower *f_first, flower *f_second
 
 inline double sqr(double x) { return x*x; }
 
+#ifdef WIN32
+#define UPDATE_PER 100
+#else
+#define UPDATE_PER 5
+#endif
+
 void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 {
 	if (!count)
@@ -752,6 +760,7 @@ void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 	double y = 0.0;
 
 	int n = 0;
+	int rep = count/UPDATE_PER;
 	for (flower* f=flowers; f<(flowers+count); f++) {
 
 		double r = f->r;
@@ -768,7 +777,7 @@ void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 			double best_dist = DBL_MAX;
 			int found = 0;
 			int best_pair = -1;
-			if (shape==FIT_MOST) {
+			if (shape==FIT_MOST || shape==FIT_BOX) {
 				for (flower* f2=flowers; f2<f; f2++) {
 					for (flower *f3=flowers; f3<f2; f3++) {
 						double r3 = f->r + f2->r + f3->r;
@@ -824,6 +833,11 @@ void pack_flowers(flower *flowers, int count, fit shape, double aspect)
 		f->x = x;
 		f->y = y;
 		n++;
+		if (n>rep) {
+			printf("completed %d / %d\r", (int)(f-flowers), count);
+			fflush(stdout);
+			rep = n + count/UPDATE_PER;
+		}
 	}
 	free(prs);
 }
@@ -843,8 +857,10 @@ void initflower(flower *f, const flower &low, const flower &high)
 	f->col_ctr = colrand(low.col_ctr, high.col_ctr, low.lin_ctr);
 	f->col_pet = colrand(low.col_pet, high.col_pet, low.lin_pet);
 	f->type = low.type;
-	if (high.type>low.type)
-		 f->type += ((rand()*113)>>8) % (high.type-low.type);
+	if (high.type>low.type) {
+		int rando = abs((rand()*113)>>8);
+		f->type += rando % (high.type-low.type);
+	}
 }
 
 
@@ -1119,7 +1135,8 @@ int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high)
 		case CLN_COLPETAL:
 			low.col_pet = read_col(cell);
 			high.col_pet = read_col(val2);
-			low.lin_pet = 192; // if setting color and not linear probably implying slightly linear interp
+			if (!(flora.data_found&(1<<CLN_LINPETAL)))
+				low.lin_pet = 128; // if setting color and not linear probably implying slightly linear interp
 			break;
 
 		case CLN_LINPETAL:
@@ -1719,7 +1736,7 @@ int Flora::Do()
 		}
 	}
 
-	int img_size = img_wid * img_hgt * sizeof(unsigned int);
+	size_t img_size = size_t(img_wid) * size_t(img_hgt) * sizeof(unsigned int);
 
 	if (!bitmap) {
 		bitmap = (unsigned int*)malloc(img_size);
