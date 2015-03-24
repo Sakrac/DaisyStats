@@ -841,6 +841,10 @@ void pack_flowers(flower_pack *flowers, int count, fit shape, double aspect)
 	if (!count)
 		return;
 
+#ifdef WIN32
+	time_t last_time; time(&last_time);
+#endif
+
 	int max_pairs = count*count, num_pairs = 0;
 	flower_pair *prs = (flower_pair*)malloc(sizeof(flower_pair)*max_pairs);
 
@@ -921,6 +925,10 @@ void pack_flowers(flower_pack *flowers, int count, fit shape, double aspect)
 		f->x = x;
 		f->y = y;
 		n++;
+#ifdef WIN32
+		time_t curr_time; time(&curr_time);
+		if (difftime(curr_time, last_time)>4) { last_time = curr_time; rep=n-1; }
+#endif
 		if (n>rep) {
 			printf("completed %d / %d\r", (int)(f-flowers), count);
 			fflush(stdout);
