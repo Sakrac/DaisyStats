@@ -1443,7 +1443,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 							flower h = presets?presets[preset*2+1] : default_high; // read out range for this index
 							flower_pack lp = preset_packs ? preset_packs[preset * 2] : default_low_pack;
 							flower_pack hp = preset_packs ? preset_packs[preset * 2 + 1] : default_high_pack; // read out range for this index
-							int copies = 0;
+							int copies = 1;
 							for (int i=0; i<CLN_ENTRIES; i++) if (indices[i]>=0) {
 								int v = GetRange(currRow[indices[i]], (ColumnIndex)i, l, h, lp, hp);
 								if (v && i==CLN_COUNT) copies = v;
