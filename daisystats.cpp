@@ -200,6 +200,7 @@ enum ColumnIndex {
 	CLN_TYPE,
 	CLN_LENGTH,
 	CLN_COUNT,
+	CLN_RADIUS,
 
 	CLN_ENTRIES
 };
@@ -217,7 +218,8 @@ const char *ColumnName[CLN_ENTRIES] = {
 	"flat",
 	"type",
 	"length",
-	"count"
+	"count",
+	"radius"
 };
 
 typedef unsigned char u8;
@@ -1210,6 +1212,21 @@ int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high, flow
 			high.value = val2;
 			break;
 
+		case CLN_RADIUS:
+			if (!(flora.data_found&(1<<CLN_VALUE))) {
+				if (cell[0]=='0' && tolower(cell[1])=='x')
+					low_p.r = double(strtol(cell,NULL, 16));
+				else
+					low_p.r = strtod(cell, nullptr);	// area is value
+				if (val2[0]=='0' && tolower(val2[1])=='x')
+					high_p.r = double(strtol(val2,NULL, 16));
+				else
+					high_p.r = strtod(val2, nullptr);
+				low.value = cell;
+				high.value = val2;
+			}
+			break;
+
 		case CLN_NAME:
 			low.name = cell;
 			high.name = cell;
@@ -1399,7 +1416,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 				indices[CLN_VALUE] = indices[CLN_LENGTH];
 				indices[CLN_LENGTH] = -1;
 				flora.data_found = (flora.data_found | (1<<CLN_VALUE)) & ~(1<<CLN_LENGTH);
-			} else if (!range && indices[CLN_VALUE]<0) {
+			} else if (!range && indices[CLN_VALUE]<0 && indices[CLN_RADIUS]<0) {
 				int bestRowNums = -1;
 				for (int c=0; c<columns; c++) if (!isOneOf(c, indices, CLN_ENTRIES)) {
 					int numNums = 0;
@@ -1419,15 +1436,16 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 			}
 			if (notOneOf(-1, indices, CLN_ENTRIES)) { // any meaningful columns ?
 				int flowersToCreate = 0; // count meaningful rows
+				int value_index = indices[CLN_VALUE]>=0 ? indices[CLN_VALUE] : indices[CLN_RADIUS];
 				for (int r=top_row; r<rows; r++)
-					flowersToCreate += rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE], indices[CLN_COUNT]);
+					flowersToCreate += rowIsMeaningful(pCells+r*columns, columns, value_index, indices[CLN_COUNT]);
 				if (flowersToCreate) {
 					flowers = f = (flower*)malloc(sizeof(flower) * flowersToCreate * (range ? 2:1));
 					flower_packs = fp = (flower_pack*)malloc(sizeof(flower_pack) * flowersToCreate * (range ? 2:1));
 					int n = 0;
 					int *preset_selected = (int*)malloc(sizeof(int) * flowersToCreate);
 					for (int r=top_row; r<rows; r++) {
-						if (rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE], indices[CLN_COUNT])) {
+						if (rowIsMeaningful(pCells+r*columns, columns, value_index, indices[CLN_COUNT])) {
 							int preset = n&&num_presets?(preset_selected[n-1]+1)%num_presets : 0;
 							const char **currRow = pCells+r*columns;
 							if (indices[CLN_NAME]>=0 && currRow[indices[CLN_NAME]] && *currRow[indices[CLN_NAME]]) {
