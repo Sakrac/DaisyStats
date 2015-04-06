@@ -749,15 +749,16 @@ void reorder(flower *flowers, flower_pack *pack, int count, sort order)
 		return;
 
 	if (order==SORT_SHUFFLE) {
-		for (int n=1; n<count; n++) {
-			int r = rand()%n;
+		int r = count/2;
+		for (int n=0; n<count; n++) {
+			r = (rand()+r+n)%count;
 			if (r!=n) {
-				flower t = flowers[n];
-				flower_pack tp = pack[n];
-				memmove(flowers+r+1, flowers+r, sizeof(flower) * (n-r));
-				memmove(pack+r+1, pack+r, sizeof(pack) * (n - r));
-				flowers[r] = t;
-				pack[r] = tp;
+				flower tmp = flowers[r];
+				flowers[r] = flowers[n];
+				flowers[n] = tmp;
+				flower_pack tpk = pack[r];
+				pack[r] = pack[n];
+				pack[n] = tpk;
 			}
 		}
 	} else if (order == SORT_SMALL || order == SORT_LARGE || order == SORT_NAME) {
