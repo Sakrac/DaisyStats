@@ -1,8 +1,8 @@
 /*
-	Copyright 2015 Carl-Henrik Skårstedt. All rights reserved.
-
+	Copyright 2015 Carl-Henrik SkÃ¥rstedt. All rights reserved.
+ 
 	https://github.com/sakrac/daisystats
-*/
+ */
 // standard stuff
 #define _CRT_SECURE_NO_WARNINGS
 #include <math.h>
@@ -117,29 +117,29 @@ const char Instructions[] = {
 enum arguments {
 	A_ASPECT,
 	A_BACKGROUND,
-    A_COLOR,
+	A_COLOR,
 	A_DATA,
 	A_FONT,
 	A_LEGEND,
-    A_NAME_COLOR,
+	A_NAME_COLOR,
 	A_MAKE,
 	A_ORDER,
 	A_PRESET,
 	A_RANDOM,
 	A_SIZE,
 	A_TITLE,
-
+	
 	A_COUNT
 };
 
 const char *cmd_args[] = {
 	"aspect",
 	"background",
-    "color",
+	"color",
 	"data",
 	"font",
 	"legend",
-    "name_color",
+	"name_color",
 	"make",
 	"order",
 	"preset",
@@ -155,7 +155,7 @@ enum fit {
 	FIT_LAST,
 	FIT_MOST,
 	FIT_BOX,
-
+	
 	FIT_COUNT
 };
 
@@ -174,7 +174,7 @@ enum sort {
 	SORT_SMALL,
 	SORT_SHUFFLE,
 	SORT_NAME,
-
+	
 	SORT_COUNT
 };
 
@@ -200,8 +200,7 @@ enum ColumnIndex {
 	CLN_TYPE,
 	CLN_LENGTH,
 	CLN_COUNT,
-	CLN_RADIUS,
-
+	
 	CLN_ENTRIES
 };
 
@@ -218,8 +217,7 @@ const char *ColumnName[CLN_ENTRIES] = {
 	"flat",
 	"type",
 	"length",
-	"count",
-	"radius"
+	"count"
 };
 
 typedef unsigned char u8;
@@ -311,7 +309,7 @@ inline double petval4(double x, double y, double k)
 	static const double ep = 1e-12;
 	double ax = fabs(x);
 	double ay = fabs(y);
-
+	
 	return x*x+y*y+k*(x*x/(ay<ep?ep:ay)+y*y/(ax<ep?ep:ax));
 }
 
@@ -322,17 +320,17 @@ void drawnpetal(unsigned int *bitmap, int bitmap_width, double x, double y, doub
 	double pe = petval4(cos(tip_angle), sin(tip_angle), k);
 	double ce = c*c, fe = r*r;
 	double ps = (double)petals/4.0;
-
+	
 	// get image center point
 	int cx = (int)x;
 	int cy = (int)y;
-
+	
 	// get fraction of pixel
 	x -= (double)cx;
 	y -= (double)cy;
-
+	
 	int ir = (int)(2.0*(r+1.0));	// integer radius with buffer
-
+	
 	bitmap += size_t(cy-ir)*size_t(bitmap_width) + size_t(cx);
 	for (int v=-ir; v<=ir; v++) {
 		int w = int(sqrt(r*r+1.0-double(v*v)))+1;
@@ -427,7 +425,7 @@ bool SaveTGA(const char *filename, u16 width, u16 height, u8 *data)
 		image.mHeight = height;
 		image.mBPP = 32;
 		image.mImageDescriptorByte = 8;
-
+		
 		fwrite(&image, 1, sizeof(image), fp);
 		for (int y = height-1; y>=0; --y)
 			fwrite(data + size_t(width)*4*size_t(y), width*4, 1, fp);
@@ -485,7 +483,7 @@ bool InitFont(const char *fontname)
 			}
 		}
 	}
-
+	
 	if (ttf_data) {
 		ttf_file = ttf_data;
 		if (!stbtt_InitFont(&font, (unsigned char*)ttf_data, 0)) {
@@ -535,7 +533,7 @@ void DrawCodepointAt(int codepoint, double x, double y, float scale, color col, 
 	// cache the memory block for drawing characters to reduce allocs
 	int bx0, by0, bx1, by1;
 	stbtt_GetCodepointBitmapBoxSubpixel(&font, codepoint, scale, scale, (float)(x - floor(x)), (float)(y - floor(y)), &bx0, &by0, &bx1, &by1);
-
+	
 	int prev_size = glyph_buf_wid * glyph_buf_height;
 	int new_size = (bx1 - bx0) * (by1 - by0);
 	if (!glyph_buf || new_size > prev_size) {
@@ -546,19 +544,19 @@ void DrawCodepointAt(int codepoint, double x, double y, float scale, color col, 
 		glyph_buf_height = by1 - by0;
 	}
 	int wc=bx1-bx0, hc=by1-by0, ox=bx0, oy=by0;
-
+	
 	stbtt_MakeCodepointBitmapSubpixel(&font, glyph_buf + TTY_GUARD, wc, hc, wc, scale, scale, (float)(x - floor(x)), (float)(y - floor(y)), codepoint);
 	unsigned char *bm_char = glyph_buf + TTY_GUARD;
-
-    int ix = ox + (int)x, iy = oy + (int)y;
+	
+	int ix = ox + (int)x, iy = oy + (int)y;
 	int w = (ix+wc)<wid ? wc : (wid-ix), h = (iy+hc)<hgt ? hc : (hgt-iy);
-
+	
 	if (ix>=wid || iy>=hgt || (ix+wc)<=0 || (iy+hc)<=0)
 		return; // all outside
-
+	
 	if (ix<0) { w += ix; bm_char -= ix; ix = 0; }
 	if (iy<0) { h += iy; bm_char -= iy*wc; iy = 0; }
-
+	
 	bm_trg += iy * wid + ix;
 	if (unsigned char *bm_cr = bm_char) {
 		unsigned int c32 = *(unsigned int*)&col;
@@ -615,7 +613,7 @@ textspace GetTextSpace(const unsigned char *utf8)
 	int advance, lsb, prevcode = 0;
 	int xp = 0, yp = 0;
 	int minx = 0x7fffffff, miny = 0x7fffffff, maxx = -0x7fffffff, maxy = -0x7fffffff;
-
+	
 	for (;;) {
 		int code = *utf8++;
 		if (code>=0xc0) { int mask = 0x40; code &= 0x7f;
@@ -639,7 +637,7 @@ textspace GetTextSpace(const unsigned char *utf8)
 	}
 	textspace ret = { minx, maxx, miny, maxy };
 	return ret;
-
+	
 }
 
 
@@ -669,7 +667,7 @@ color colrand(color low, color high, u8 linear)
 	unsigned int rg = rand()%255;
 	unsigned int rb = rand()%255;
 	unsigned int ra = rand()%255;
-
+	
 	// linear = 0 => no influence
 	// linear = 255 => all the same
 	unsigned int rs = (rr+rg+rb+ra)*linear/4;
@@ -677,7 +675,7 @@ color colrand(color low, color high, u8 linear)
 	rg = (rs + rg*(255-linear))/255;
 	rb = (rs + rb*(255-linear))/255;
 	ra = (rs + ra*(255-linear))/255;
-
+	
 	color ret = {
 		(u8)(((rr * int(high.r-low.r) + 127) / 255) + low.r),
 		(u8)(((rg * int(high.g-low.g) + 127) / 255) + low.g),
@@ -706,7 +704,7 @@ struct flower {
 };
 
 struct flower_pair {
-    int first, second;
+	int first, second;
 };
 
 static flower_pack default_low_pack = { -10000.0, -10000.0, 1.0 };
@@ -747,20 +745,22 @@ void reorder(flower *flowers, flower_pack *pack, int count, sort order)
 {
 	if (!count)
 		return;
-
+	
 	if (order==SORT_SHUFFLE) {
-		int r = count/2;
+		flower *flowers_tmp = (flower*)malloc(sizeof(flower) * count);
+		memcpy(flowers_tmp, flowers, sizeof(flower) * count);
+		flower_pack *pack_tmp = (flower_pack*)malloc(sizeof(flower_pack) * count);
+		memcpy(pack_tmp, pack, sizeof(flower_pack) * count);
 		for (int n=0; n<count; n++) {
-			r = (rand()+r+n)%count;
-			if (r!=n) {
-				flower tmp = flowers[r];
-				flowers[r] = flowers[n];
-				flowers[n] = tmp;
-				flower_pack tpk = pack[r];
-				pack[r] = pack[n];
-				pack[n] = tpk;
-			}
+			int l = count - n;
+			int r = rand()%l;
+			flowers[n] = flowers_tmp[r];
+			pack[n] = pack_tmp[r];
+			memmove(flowers_tmp+r, flowers_tmp+r+1, sizeof(flower) * (l-r));
+			memmove(pack_tmp+r, pack_tmp+r+1, sizeof(flower_pack) * (l-r));
 		}
+		free(flowers_tmp);
+		free(pack_tmp);
 	} else if (order == SORT_SMALL || order == SORT_LARGE || order == SORT_NAME) {
 		flower_sort *aPack = (flower_sort*)malloc(sizeof(flower_sort) * count);
 		if (order == SORT_NAME) {
@@ -836,30 +836,30 @@ inline double sqr(double x) { return x*x; }
 #ifdef WIN32
 #define UPDATE_PER 100
 #else
-#define UPDATE_PER 5
+#define UPDATE_PER 20
 #endif
 
 void pack_flowers(flower_pack *flowers, int count, fit shape, double aspect)
 {
 	if (!count)
 		return;
-
+	
 #ifdef WIN32
 	time_t last_time; time(&last_time);
 #endif
-
+	
 	int max_pairs = count*count, num_pairs = 0;
 	flower_pair *prs = (flower_pair*)malloc(sizeof(flower_pair)*max_pairs);
-
+	
 	double x = 0.0;
 	double y = 0.0;
-
+	
 	int n = 0;
 	int rep = count/UPDATE_PER;
 	for (flower_pack* f = flowers; f<(flowers + count); f++) {
-
+		
 		double r = f->r;
-
+		
 		if (n==1) {
 			double a = dblrand()*3.14129654*2.0;	// pick a random angle and place there
 			double rs = r + flowers->r;
@@ -1139,12 +1139,12 @@ struct Flora {
 	int random_flowers;
 	color background;
 	color text_color;
-    color name_color;
+	color name_color;
 	int user_args;
 	int data_found;
-    bool legend_inside;
-
-
+	bool legend_inside;
+	
+	
 	Flora() :
 	data_file(nullptr),
 	out_file(nullptr),
@@ -1166,16 +1166,16 @@ struct Flora {
 	random_flowers(0),
 	user_args(0),
 	data_found(0),
-    legend_inside(false)
+	legend_inside(false)
 	{
 		color bg = { 255, 255, 255, 255 };
 		color fg = { 0, 0, 0, 255 };
-        color mg = { 0xaa, 0x55, 0xcc, 0xbd };
+		color mg = { 0xaa, 0x55, 0xcc, 0xbd };
 		background = bg;
 		text_color = fg;
-        name_color = mg;
+		name_color = mg;
 	}
-
+	
 	int Do();
 	bool Argument(const char *command, const char *arg=nullptr, bool full=false);
 } flora;
@@ -1212,70 +1212,55 @@ int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high, flow
 			low.value = cell;
 			high.value = val2;
 			break;
-
-		case CLN_RADIUS:
-			if (!(flora.data_found&(1<<CLN_VALUE))) {
-				if (cell[0]=='0' && tolower(cell[1])=='x')
-					low_p.r = double(strtol(cell,NULL, 16));
-				else
-					low_p.r = strtod(cell, nullptr);	// area is value
-				if (val2[0]=='0' && tolower(val2[1])=='x')
-					high_p.r = double(strtol(val2,NULL, 16));
-				else
-					high_p.r = strtod(val2, nullptr);
-				low.value = cell;
-				high.value = val2;
-			}
-			break;
-
+			
 		case CLN_NAME:
 			low.name = cell;
 			high.name = cell;
 			break;
-
+			
 		case CLN_CENTER:
 			low.c = 0.01 * strtod(cell, nullptr);	// center is a percentage scalar of radius here
 			high.c = 0.01 * strtod(val2, nullptr);
 			break;
-
+			
 		case CLN_ANGLE:
 			low.a = strtod(cell, nullptr);
 			high.a = strtod(val2, nullptr);
 			break;
-
+			
 		case CLN_PETAL:
 			low.k = 0.01*strtod(cell, nullptr);	// convert percent
 			high.k = 0.01*strtod(val2, nullptr);
 			break;
-
+			
 		case CLN_COLPETAL:
 			low.col_pet = read_col(cell);
 			high.col_pet = read_col(val2);
 			if (!(flora.data_found&(1<<CLN_LINPETAL)))
 				low.lin_pet = 128; // if setting color and not linear probably implying slightly linear interp
 			break;
-
+			
 		case CLN_LINPETAL:
 			low.lin_pet = (u8)(2.55 * strtod(cell, nullptr));
 			high.lin_pet = (u8)(2.55 * strtod(cell, nullptr));
 			break;
-
+			
 		case CLN_COLCTR:
 			low.col_ctr = read_col(cell);
 			high.col_ctr = read_col(val2);
 			low.lin_ctr = 192;
 			break;
-
+			
 		case CLN_LINCTR:
 			low.lin_ctr = (u8)(2.55 * strtod(cell, nullptr));
 			high.lin_ctr = (u8)(2.55 * strtod(cell, nullptr));
 			break;
-
+			
 		case CLN_FLAT:
 			low.f = strtod(cell, nullptr);
 			high.f = strtod(cell, nullptr);
 			break;
-
+			
 		case CLN_TYPE:
 			low.type = atoi(cell);
 			high.type = atoi(val2);
@@ -1284,10 +1269,10 @@ int GetRange(const char *cell, ColumnIndex type, flower &low, flower &high, flow
 			if (high.type<3)	high.type = 3;
 			if (high.type>40)	high.type = 40;
 			break;
-
+			
 		case CLN_COUNT:
 			return atoi(cell);
-
+			
 		default:
 			break;
 	}
@@ -1385,7 +1370,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 	if (const char** pCells = ReadCSV(filename, columns, rows, &CSV)) {
 		if (columns && rows) { // top row will contain the names of relevant elements
 			int start_row = 0, top_row = 0; // where the values start
-
+			
 			if (!range) {
 				// Allow for command line arguments to be rows at start of CSV (may require
 				//	recursion due to re-specification of the data file)
@@ -1406,7 +1391,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 					}
 				}
 			}
-
+			
 			int indices[CLN_ENTRIES]; for (int i=0; i<CLN_ENTRIES; i++) indices[i] = -1;
 			for (int c=0; c<columns; c++) if (pCells[c]) for (int n=0; n<CLN_ENTRIES; n++) {
 				if (strcasecmp(ColumnName[n], (const char*)pCells[c+start_row*columns])==0) {
@@ -1417,7 +1402,7 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 				indices[CLN_VALUE] = indices[CLN_LENGTH];
 				indices[CLN_LENGTH] = -1;
 				flora.data_found = (flora.data_found | (1<<CLN_VALUE)) & ~(1<<CLN_LENGTH);
-			} else if (!range && indices[CLN_VALUE]<0 && indices[CLN_RADIUS]<0) {
+			} else if (!range && indices[CLN_VALUE]<0) {
 				int bestRowNums = -1;
 				for (int c=0; c<columns; c++) if (!isOneOf(c, indices, CLN_ENTRIES)) {
 					int numNums = 0;
@@ -1437,16 +1422,15 @@ flower* readValuesFromCSV(const char *filename, bool range, int &count, const ch
 			}
 			if (notOneOf(-1, indices, CLN_ENTRIES)) { // any meaningful columns ?
 				int flowersToCreate = 0; // count meaningful rows
-				int value_index = indices[CLN_VALUE]>=0 ? indices[CLN_VALUE] : indices[CLN_RADIUS];
 				for (int r=top_row; r<rows; r++)
-					flowersToCreate += rowIsMeaningful(pCells+r*columns, columns, value_index, indices[CLN_COUNT]);
+					flowersToCreate += rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE], indices[CLN_COUNT]);
 				if (flowersToCreate) {
 					flowers = f = (flower*)malloc(sizeof(flower) * flowersToCreate * (range ? 2:1));
 					flower_packs = fp = (flower_pack*)malloc(sizeof(flower_pack) * flowersToCreate * (range ? 2:1));
 					int n = 0;
 					int *preset_selected = (int*)malloc(sizeof(int) * flowersToCreate);
 					for (int r=top_row; r<rows; r++) {
-						if (rowIsMeaningful(pCells+r*columns, columns, value_index, indices[CLN_COUNT])) {
+						if (rowIsMeaningful(pCells+r*columns, columns, indices[CLN_VALUE], indices[CLN_COUNT])) {
 							int preset = n&&num_presets?(preset_selected[n-1]+1)%num_presets : 0;
 							const char **currRow = pCells+r*columns;
 							if (indices[CLN_NAME]>=0 && currRow[indices[CLN_NAME]] && *currRow[indices[CLN_NAME]]) {
@@ -1541,16 +1525,16 @@ bool Flora::Argument(const char *command, const char *arg, bool full)
 			mostSame = same;
 		}
 	}
-
+	
 	// double check full name if required (arguments read from csv file)
 	if (full && best<A_COUNT && strncasecmp(command, cmd_args[best], strlen(cmd_args[best]))!=0)
 		return false;
-
+	
 	if (!arg) {
 		while (*command && *command++!='=');
 		arg = command;
 	}
-
+	
 	switch (best) {
 		case A_ASPECT:
 			aspect = strtod(arg, nullptr);
@@ -1582,14 +1566,14 @@ bool Flora::Argument(const char *command, const char *arg, bool full)
 			printf("Font=%s\n", font_name);
 			break;
 		case A_LEGEND:
-            if (tolower(arg[0])=='i')
-                legend_inside = true;
-            else {
-                legend_height = atoi(arg);
-                if (const char *fs=strchr(arg,':'))
-                    font_name=fs+1;
-                printf("Legend=%d\n", legend_height);
-            }
+			if (tolower(arg[0])=='i')
+				legend_inside = true;
+			else {
+				legend_height = atoi(arg);
+				if (const char *fs=strchr(arg,':'))
+					font_name=fs+1;
+				printf("Legend=%d\n", legend_height);
+			}
 			break;
 		case A_MAKE:
 			shape = (fit)byIndex(arg, fit_name, FIT_COUNT, shape);
@@ -1650,17 +1634,17 @@ int Flora::Do()
 		fputs(Instructions, stdout);
 		return 0;
 	}
-
+	
 	// MAKE SURE RANDOM IS UNIQUE
 	srand ((unsigned int)time(NULL));
-
+	
 	// LOAD OR RANDOMIZE SET OF FLOWERS
 	int num_flowers = 0;
 	flower* flowers = nullptr;
 	flower_pack* flower_packs = nullptr;
 	if (data_file)
 		flowers = readValuesFromCSV(data_file, false, num_flowers, &data_str, &flower_packs, presets, preset_packs, num_presets);
-
+	
 	if (random_flowers) {
 		flower *flowers_rand = (flower*)malloc(sizeof(flower) * (random_flowers+num_flowers));
 		flower_pack *flowers_pack_rand = (flower_pack*)malloc(sizeof(flower_pack) * (random_flowers + num_flowers));
@@ -1680,13 +1664,13 @@ int Flora::Do()
 		}
 	}
 	bool sets = CombineSharedNames(flowers, num_flowers);
-
+	
 	// RELEASE PRESETS
 	if (presets) {
 		free(presets);
 		presets = nullptr;
 	}
-
+	
 	// CHECK IF THERE IS ANY WORK
 	if (!flowers) {
 		fputs("Nothing to do\n", stdout);
@@ -1695,7 +1679,7 @@ int Flora::Do()
 		if (preset_str) free((void*)preset_str);
 		return 0;
 	}
-
+	
 	// CHECK IMPLIED ARGUMENTS
 	char out_file_buf[512], title_buf[128];
 	if (!out_file) {//"flowers.png"
@@ -1712,7 +1696,7 @@ int Flora::Do()
 			data_file = "flowers.png";
 	}
 	if (!legend_height && (data_found&((1U<<CLN_NAME)|(1U<<CLN_VALUE))) == ((1U<<CLN_NAME)|(1U<<CLN_VALUE))) {
-        legend_height = legend_inside ? 0 : (img_widhgt>>6);
+		legend_height = legend_inside ? 0 : (img_widhgt>>6);
 		if (!title_height && data_file) {
 			int last_sls=(int)strlen(data_file), max_dot=last_sls;
 			while (last_sls>=0 && data_file[last_sls]!='\\' && data_file[last_sls]!='/') last_sls--;
@@ -1725,16 +1709,16 @@ int Flora::Do()
 			title_height = img_widhgt>>3;
 		}
 	}
-
+	
 	if (!(user_args&(1<<A_NAME_COLOR)))
 		name_color = text_color;
-
+	
 	// IMAGE SETUP
 	unsigned int bc = *(unsigned int*)&background;
 	unsigned int *bitmap = nullptr;
 	int img_wid = -1;
 	int img_hgt = -1;
-
+	
 	// LOAD BACKGROUND IMAGE
 	if (background_file) {
 		const char *ext = background_file + strlen(background_file)-4;
@@ -1762,14 +1746,14 @@ int Flora::Do()
 			}
 		}
 	}
-
+	
 	// SORT
 	reorder(flowers, flower_packs, num_flowers, order);
-
+	
 	// PACK
 	printf("Arranging %d flowers\n", num_flowers);
 	pack_flowers(flower_packs, num_flowers, shape, aspect);
-
+	
 	// FIT TO BITMAP
 	double minx=0.0, maxx=0.0, miny=0.0, maxy=0.0;
 	int scale_op = 0;
@@ -1795,23 +1779,23 @@ int Flora::Do()
 		}
 		scale_op++;
 	}
-
+	
 	minx -= double(EDGE_MARGIN);
 	miny -= double(EDGE_MARGIN);
 	maxx += double(EDGE_MARGIN);
 	maxy += double(EDGE_MARGIN);
-
+	
 	img_wid = img_wid<0 ? int(maxx-minx) : img_wid;
 	img_hgt = img_hgt<0 ? int(maxy-miny) : img_hgt;
-
+	
 	double cx = 0.5*((double)img_wid-(maxx-minx));
 	double cy = 0.5*((double)img_hgt-(maxy-miny));
-
+	
 	bool hasFont = (legend_height || legend_inside || (title_height&&title_str)) && InitFont(font_name);
 	int legend_columns = 0;
 	int legend_lines = 0;
 	int legend_count = 0;
-
+	
 	// check if need room for legend
 	if (title_height && hasFont) {
 		img_hgt += title_height;
@@ -1845,7 +1829,7 @@ int Flora::Do()
 			}
 		}
 		lg_maxx += legend_height; // room for flower :)
-
+		
 		if (legend_count) {
 			// can ignore lg_minx
 			legend_columns = 1;
@@ -1853,24 +1837,24 @@ int Flora::Do()
 				img_wid = int(lg_maxx + legend_height*2);
 			else {
 				legend_columns = (img_wid/int(lg_maxx + legend_height*2)) < legend_count ?
-					img_wid/int(lg_maxx + legend_height*2) : legend_count;
+				img_wid/int(lg_maxx + legend_height*2) : legend_count;
 			}
 			legend_lines = (legend_count + legend_columns-1) / legend_columns;
 			legend_center = 0.5 * (img_wid/legend_columns - lg_maxx - legend_height);
-
+			
 			if (!bitmap)
 				img_hgt += legend_height * legend_lines;
 		}
 	}
-
+	
 	size_t img_size = size_t(img_wid) * size_t(img_hgt) * sizeof(unsigned int);
-
+	
 	if (!bitmap) {
 		bitmap = (unsigned int*)malloc(img_size);
 		if (bitmap) for (int i=0; i<(img_wid * img_hgt); i++)
 			bitmap[i] = bc;
 	}
-
+	
 	if (!bitmap) {
 		printf("Could not allocate memory for %d x %d pixels (%d MB)\n",
 			   img_wid, img_hgt, img_size*4/(1024*1024));
@@ -1880,14 +1864,14 @@ int Flora::Do()
 		if (flowers) free((void*)flowers);
 		return 1;
 	}
-
+	
 	printf("Image size: %.d, %d\nPainting %d flowers..\n", img_wid, img_hgt, num_flowers);
 	flower_pack *fp = flower_packs;
 	for (flower* f=flowers; f<(flowers+num_flowers); f++, fp++) {
 		drawnpetal(bitmap, img_wid, fp->x + cx, fp->y + cy, fp->r, f->c * fp->r, f->a, 0.05 / (f->k), f->f,
-				  *(unsigned int*)&f->col_pet, *(unsigned int*)&f->col_ctr, f->type);
+				   *(unsigned int*)&f->col_pet, *(unsigned int*)&f->col_ctr, f->type);
 	}
-
+	
 	if (title_height && title_str && hasFont) {
 		printf("Adding title \"%s\"\n", title_str);
 		double scale = FontSizeScale((float)title_height);
@@ -1897,20 +1881,20 @@ int Flora::Do()
 		DrawTextAt((const unsigned char*)title_str, (float)scale, 0.5*(img_wid-scale*(box.maxx-box.minx)),
 				   scale*baseline, text_color, bitmap, img_wid, img_hgt);
 	}
-    if (legend_inside && hasFont) {
-        printf("Adding legend inside..\n");
+	if (legend_inside && hasFont) {
+		printf("Adding legend inside..\n");
 		fp = flower_packs;
-        for (flower* f=flowers; f<(flowers+num_flowers); f++, fp++) {
-            if (f->name) {
-                textspace box = GetTextSpace((unsigned const char*)f->name);
-                color c = name_color;
-                double w = box.maxx-box.maxy, h = box.maxy-box.miny;
-                double mh = 0.5*(box.minx+box.maxx), mv = 0.5*(box.miny+box.maxy);
-                double scale = 2.0*fp->r/sqrt(w*w+h*h);
-                DrawTextAt((const unsigned char*)f->name, (float)scale, fp->x+cx-scale*mh, fp->y+cy-scale*mv, c, bitmap, img_wid, img_hgt);
-            }
-        }
-    } else if (legend_height && hasFont) {
+		for (flower* f=flowers; f<(flowers+num_flowers); f++, fp++) {
+			if (f->name) {
+				textspace box = GetTextSpace((unsigned const char*)f->name);
+				color c = name_color;
+				double w = box.maxx-box.maxy, h = box.maxy-box.miny;
+				double mh = 0.5*(box.minx+box.maxx), mv = 0.5*(box.miny+box.maxy);
+				double scale = 2.0*fp->r/sqrt(w*w+h*h);
+				DrawTextAt((const unsigned char*)f->name, (float)scale, fp->x+cx-scale*mh, fp->y+cy-scale*mv, c, bitmap, img_wid, img_hgt);
+			}
+		}
+	} else if (legend_height && hasFont) {
 		printf("Adding legend..\n");
 		double scale = FontSizeScale((float)legend_height);
 		int centerHgt = FontCenterHgt();
@@ -1932,7 +1916,7 @@ int Flora::Do()
 					double y = img_hgt-(legend_lines-n/legend_columns) * legend_height - EDGE_MARGIN+scale*centerHgt;
 					double x = (img_wid/legend_columns) * (n%legend_columns) + legend_height + legend_center;
 					drawnpetal(bitmap, img_wid, x, y, 0.5*legend_height, f->c * 0.5 * legend_height, 0.0, 0.25/(f->k*f->k), f->f,
-							  *(unsigned int*)&f->col_pet, *(unsigned int*)&f->col_ctr, f->type);
+							   *(unsigned int*)&f->col_pet, *(unsigned int*)&f->col_ctr, f->type);
 					DrawTextAt((const unsigned char*)text, (float)scale, x+legend_height,
 							   y+scale*centerHgt, c, bitmap, img_wid, img_hgt);
 					n++;
